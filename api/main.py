@@ -3,6 +3,7 @@ Meta Ads Dashboard - FastAPI Backend
 Proxies Meta Graph API calls and serves data to the React frontend.
 """
 import os
+import yaml
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -17,6 +18,67 @@ from apscheduler.schedulers.background import BackgroundScheduler
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 REPORT_HOUR = int(os.getenv("REPORT_HOUR", "8"))
+GRAPH_BASE = "https://graph.facebook.com/v21.0"
+
+# ---------------------------------------------------------------------------
+# Client config — loaded from config/clients.yaml
+# Falls back to META_ACCESS_TOKEN in .env if no yaml exists.
+# ---------------------------------------------------------------------------
+
+_CLIENTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'clients.yaml')
+
+def load_clients() -> list[dict]:
+    """Return list of {name, token} from clients.yaml, falling back to .env."""
+    if os.path.exists(_CLIENTS_PATH):
+        with open(_CLIENTS_PATH) as f:
+            data = yaml.safe_load(f) or {}
+        clients = data.get("clients", [])
+        if clients:
+            return clients
+    # Fallback: single client from .env
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    return [{"name": "Default", "token": token}] if token else []
+
+
+# account_id -> {token, client_name} — populated on startup
+ACCOUNT_MAP: dict[str, dict] = {}
+
+def _build_account_map():
+    """Fetch all accounts for every client and build the lookup map."""
+    ACCOUNT_MAP.clear()
+    for client in load_clients():
+        token = client.get("token", "")
+        name  = client.get("name", "Unknown")
+        if not token:
+            continue
+        try:
+            resp = httpx.get(
+                f"{GRAPH_BASE}/me/adaccounts",
+                params={"fields": "id,name,account_status,currency,timezone_name,amount_spent,balance", "access_token": token},
+                timeout=15.0,
+            ).json()
+            for acct in resp.get("data", []):
+                ACCOUNT_MAP[acct["id"]] = {"token": token, "client": name}
+            print(f"[clients] {name}: {len(resp.get('data', []))} accounts loaded")
+        except Exception as e:
+            print(f"[clients] Failed to load accounts for {name}: {e}")
+
+def _normalize_account_id(account_id: str) -> str:
+    """Ensure account_id has act_ prefix."""
+    if account_id and not account_id.startswith("act_"):
+        return f"act_{account_id}"
+    return account_id
+
+def _token_for(account_id: str) -> str:
+    aid = _normalize_account_id(account_id)
+    entry = ACCOUNT_MAP.get(aid)
+    if entry:
+        return entry["token"]
+    # Fallback to first available token
+    for v in ACCOUNT_MAP.values():
+        return v["token"]
+    return os.getenv("META_ACCESS_TOKEN", "")
+
 
 def _start_scheduler(app):
     scheduler = BackgroundScheduler(timezone="America/New_York")
@@ -33,6 +95,7 @@ def _start_scheduler(app):
 
 @asynccontextmanager
 async def lifespan(app):
+    _build_account_map()
     _start_scheduler(app)
     yield
     if hasattr(app.state, "scheduler"):
@@ -47,8 +110,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Keep ACCESS_TOKEN for backwards compat (agent, executor, upload)
 ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN", "")
-GRAPH_BASE = "https://graph.facebook.com/v21.0"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -60,16 +123,36 @@ def ensure_account_id_format(account_id: str) -> str:
     return account_id
 
 
-def meta_get(path: str, params: dict = None) -> dict:
-    """Make a GET request to the Meta Graph API."""
-    if not ACCESS_TOKEN:
-        raise HTTPException(status_code=500, detail="META_ACCESS_TOKEN not set")
-    p = {"access_token": ACCESS_TOKEN, **(params or {})}
-    resp = httpx.get(f"{GRAPH_BASE}{path}", params=p, timeout=30.0)
-    data = resp.json()
-    if "error" in data:
-        raise HTTPException(status_code=400, detail=data["error"].get("message", "Meta API error"))
-    return data
+def meta_get(path: str, params: dict = None, account_id: str = None) -> dict:
+    """Make a GET request to the Meta Graph API.
+    If account_id is known, uses its token directly.
+    Otherwise tries all client tokens until one succeeds.
+    """
+    if account_id and _normalize_account_id(account_id) in ACCOUNT_MAP:
+        token = ACCOUNT_MAP[_normalize_account_id(account_id)]["token"]
+        p = {"access_token": token, **(params or {})}
+        resp = httpx.get(f"{GRAPH_BASE}{path}", params=p, timeout=30.0)
+        data = resp.json()
+        if "error" in data:
+            raise HTTPException(status_code=400, detail=data["error"].get("message", "Meta API error"))
+        return data
+
+    # No known account — try all client tokens
+    clients = load_clients()
+    if not clients:
+        raise HTTPException(status_code=500, detail="No Meta access tokens configured")
+    last_error = "Meta API error"
+    for client in clients:
+        token = client.get("token", "")
+        if not token:
+            continue
+        p = {"access_token": token, **(params or {})}
+        resp = httpx.get(f"{GRAPH_BASE}{path}", params=p, timeout=30.0)
+        data = resp.json()
+        if "error" not in data:
+            return data
+        last_error = data["error"].get("message", last_error)
+    raise HTTPException(status_code=400, detail=last_error)
 
 
 INSIGHT_FIELDS = (
@@ -85,11 +168,31 @@ INSIGHT_FIELDS = (
 
 @app.get("/api/accounts")
 def get_accounts():
-    """List all ad accounts accessible by the token."""
-    data = meta_get("/me/adaccounts", {
-        "fields": "id,name,account_status,currency,timezone_name,amount_spent,balance"
-    })
-    return data.get("data", [])
+    """List all ad accounts across all configured clients."""
+    results = []
+    seen = set()
+    for client in load_clients():
+        token = client.get("token", "")
+        if not token:
+            continue
+        data = httpx.get(
+            f"{GRAPH_BASE}/me/adaccounts",
+            params={"fields": "id,name,account_status,currency,timezone_name,amount_spent,balance", "access_token": token},
+            timeout=15.0,
+        ).json()
+        for acct in data.get("data", []):
+            if acct["id"] not in seen:
+                seen.add(acct["id"])
+                acct["client"] = client.get("name", "")
+                results.append(acct)
+    return results
+
+
+@app.post("/api/clients/reload")
+def reload_clients():
+    """Reload client account map from clients.yaml (no restart needed)."""
+    _build_account_map()
+    return {"status": "ok", "accounts_loaded": len(ACCOUNT_MAP)}
 
 
 @app.get("/api/accounts/{account_id}/overview")
@@ -100,12 +203,13 @@ def get_account_overview(
     """Account-level aggregate insights + account info."""
     info = meta_get(f"/{account_id}", {
         "fields": "id,name,account_status,currency,timezone_name,amount_spent,balance,spend_cap"
-    })
+    }, account_id=account_id)
+    info["client"] = ACCOUNT_MAP.get(account_id, {}).get("client", "")
     insights = meta_get(f"/{account_id}/insights", {
         "fields": INSIGHT_FIELDS,
         "date_preset": date_preset,
         "level": "account",
-    })
+    }, account_id=account_id)
     return {
         "info": info,
         "insights": insights.get("data", [{}])[0] if insights.get("data") else {},
@@ -124,7 +228,7 @@ def get_campaigns(
     campaigns = meta_get(f"/{account_id}/campaigns", {
         "fields": "id,name,status,effective_status,objective,daily_budget,lifetime_budget,budget_remaining,start_time,stop_time",
         "limit": 100,
-    })
+    }, account_id=account_id)
     campaign_data = campaigns.get("data", [])
 
     if not campaign_data:
@@ -138,7 +242,7 @@ def get_campaigns(
         "level": "campaign",
         "filtering": f'[{{"field":"campaign.id","operator":"IN","value":[{ids}]}}]',
         "limit": 100,
-    })
+    }, account_id=account_id)
     insights_by_id = {i["campaign_id"]: i for i in insights_resp.get("data", []) if "campaign_id" in i}
 
     for c in campaign_data:
@@ -157,7 +261,7 @@ def get_adsets(
     date_preset: str = Query("last_7d"),
 ):
     adsets = meta_get(f"/{campaign_id}/adsets", {
-        "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,budget_remaining,targeting,start_time,end_time,optimization_goal,billing_event",
+        "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,budget_remaining,targeting,start_time,end_time,optimization_goal,billing_event,account_id",
         "limit": 100,
     })
     adset_data = adsets.get("data", [])
@@ -165,6 +269,7 @@ def get_adsets(
     if not adset_data:
         return []
 
+    account_id = adset_data[0].get("account_id")
     ids = ",".join(a["id"] for a in adset_data)
     insights_resp = meta_get(f"/{campaign_id}/insights", {
         "fields": "adset_id," + INSIGHT_FIELDS,
@@ -172,7 +277,7 @@ def get_adsets(
         "level": "adset",
         "filtering": f'[{{"field":"adset.id","operator":"IN","value":[{ids}]}}]',
         "limit": 100,
-    })
+    }, account_id=account_id)
     insights_by_id = {i["adset_id"]: i for i in insights_resp.get("data", []) if "adset_id" in i}
 
     for a in adset_data:
@@ -191,7 +296,7 @@ def get_ads(
     date_preset: str = Query("last_7d"),
 ):
     ads = meta_get(f"/{adset_id}/ads", {
-        "fields": "id,name,status,effective_status,creative{id,name,thumbnail_url,object_story_spec}",
+        "fields": "id,name,status,effective_status,creative{id,name,thumbnail_url,object_story_spec},account_id",
         "limit": 100,
     })
     ad_data = ads.get("data", [])
@@ -199,6 +304,7 @@ def get_ads(
     if not ad_data:
         return []
 
+    account_id = ad_data[0].get("account_id")
     ids = ",".join(a["id"] for a in ad_data)
     insights_resp = meta_get(f"/{adset_id}/insights", {
         "fields": "ad_id," + INSIGHT_FIELDS,
@@ -206,7 +312,7 @@ def get_ads(
         "level": "ad",
         "filtering": f'[{{"field":"ad.id","operator":"IN","value":[{ids}]}}]',
         "limit": 100,
-    })
+    }, account_id=account_id)
     insights_by_id = {i["ad_id"]: i for i in insights_resp.get("data", []) if "ad_id" in i}
 
     for a in ad_data:
@@ -231,7 +337,7 @@ def get_account_timeseries(
         "date_preset": date_preset,
         "time_increment": time_increment,
         "level": "account",
-    })
+    }, account_id=account_id)
     return data.get("data", [])
 
 
@@ -254,10 +360,11 @@ def get_campaign_timeseries(
 # Delete (archives object in Meta — ads, adsets, campaigns)
 # ---------------------------------------------------------------------------
 
-def meta_delete(object_id: str) -> dict:
+def meta_delete(object_id: str, account_id: str = None) -> dict:
+    token = _token_for(account_id) if account_id else ACCESS_TOKEN
     r = httpx.post(
         f"{GRAPH_BASE}/{object_id}",
-        json={"status": "DELETED", "access_token": ACCESS_TOKEN},
+        json={"status": "DELETED", "access_token": token},
         timeout=20.0,
     )
     result = r.json()
@@ -284,7 +391,7 @@ def delete_campaign(campaign_id: str):
 
 @app.get("/api/accounts/{account_id}/pages")
 def get_account_pages(account_id: str):
-    data = meta_get("/me/accounts", {"fields": "id,name"})
+    data = meta_get("/me/accounts", {"fields": "id,name"}, account_id=account_id)
     return data.get("data", [])
 
 
@@ -297,9 +404,10 @@ async def upload_image(account_id: str = Form(...), file: UploadFile = File(...)
     account_id = ensure_account_id_format(account_id)
     image_bytes = await file.read()
     mime = "image/png" if file.filename.lower().endswith(".png") else "image/jpeg"
+    token = _token_for(account_id)
     r = httpx.post(
         f"{GRAPH_BASE}/{account_id}/adimages",
-        data={"access_token": ACCESS_TOKEN},
+        data={"access_token": token},
         files={"filename": (file.filename, image_bytes, mime)},
         timeout=60.0,
     )

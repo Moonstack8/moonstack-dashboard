@@ -3,6 +3,7 @@ Daily performance email reporter.
 Pulls yesterday's Meta Ads data across all accounts and sends a formatted HTML email.
 """
 import os
+import yaml
 import httpx
 import resend
 from datetime import date, timedelta
@@ -10,12 +11,11 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-META_TOKEN = os.getenv("META_ACCESS_TOKEN", "")
 RESEND_KEY = os.getenv("RESEND_API_KEY", "")
 REPORT_EMAIL = os.getenv("REPORT_EMAIL", "")
 GRAPH_BASE = "https://graph.facebook.com/v21.0"
 
-# api_key set per-call to ensure it's always fresh
+_CLIENTS_PATH = os.path.join(os.path.dirname(__file__), '..', 'config', 'clients.yaml')
 
 INSIGHT_FIELDS = "spend,impressions,reach,clicks,ctr,cpc,cpm,actions,action_values,frequency"
 
@@ -24,21 +24,32 @@ INSIGHT_FIELDS = "spend,impressions,reach,clicks,ctr,cpc,cpm,actions,action_valu
 # Data fetching
 # ---------------------------------------------------------------------------
 
-def _get(path, params=None):
-    p = {"access_token": META_TOKEN, **(params or {})}
+def _load_clients():
+    if os.path.exists(_CLIENTS_PATH):
+        with open(_CLIENTS_PATH) as f:
+            data = yaml.safe_load(f) or {}
+        clients = data.get("clients", [])
+        if clients:
+            return clients
+    token = os.getenv("META_ACCESS_TOKEN", "")
+    return [{"name": "Default", "token": token}] if token else []
+
+
+def _get(path, token, params=None):
+    p = {"access_token": token, **(params or {})}
     r = httpx.get(f"{GRAPH_BASE}{path}", params=p, timeout=30.0)
     return r.json()
 
 
-def _get_accounts():
-    data = _get("/me/adaccounts", {
+def _get_accounts(token):
+    data = _get("/me/adaccounts", token, {
         "fields": "id,name,currency,account_status,amount_spent"
     })
     return [a for a in data.get("data", []) if a.get("account_status") == 1]
 
 
-def _get_account_insights(account_id, date_preset="yesterday"):
-    data = _get(f"/{account_id}/insights", {
+def _get_account_insights(account_id, token, date_preset="yesterday"):
+    data = _get(f"/{account_id}/insights", token, {
         "fields": INSIGHT_FIELDS,
         "date_preset": date_preset,
         "level": "account",
@@ -46,8 +57,8 @@ def _get_account_insights(account_id, date_preset="yesterday"):
     return data.get("data", [{}])[0] if data.get("data") else {}
 
 
-def _get_campaign_insights(account_id, date_preset="yesterday"):
-    campaigns = _get(f"/{account_id}/campaigns", {
+def _get_campaign_insights(account_id, token, date_preset="yesterday"):
+    campaigns = _get(f"/{account_id}/campaigns", token, {
         "fields": "id,name,status,effective_status,objective",
         "limit": 50,
     }).get("data", [])
@@ -56,7 +67,7 @@ def _get_campaign_insights(account_id, date_preset="yesterday"):
         return []
 
     ids = ",".join(c["id"] for c in campaigns)
-    insights_resp = _get(f"/{account_id}/insights", {
+    insights_resp = _get(f"/{account_id}/insights", token, {
         "fields": "campaign_id,campaign_name," + INSIGHT_FIELDS,
         "date_preset": date_preset,
         "level": "campaign",
@@ -77,8 +88,8 @@ def _get_campaign_insights(account_id, date_preset="yesterday"):
     return result
 
 
-def _get_ad_insights(account_id, date_preset="yesterday"):
-    data = _get(f"/{account_id}/insights", {
+def _get_ad_insights(account_id, token, date_preset="yesterday"):
+    data = _get(f"/{account_id}/insights", token, {
         "fields": "ad_id,ad_name,campaign_name," + INSIGHT_FIELDS,
         "date_preset": date_preset,
         "level": "ad",
@@ -87,8 +98,8 @@ def _get_ad_insights(account_id, date_preset="yesterday"):
     return [i for i in data.get("data", []) if float(i.get("spend", 0)) > 0]
 
 
-def _get_ad_timeseries(account_id):
-    data = _get(f"/{account_id}/insights", {
+def _get_ad_timeseries(account_id, token):
+    data = _get(f"/{account_id}/insights", token, {
         "fields": "ad_id,ad_name,ctr,spend,date_start",
         "date_preset": "last_7d",
         "time_increment": 1,
@@ -421,24 +432,35 @@ def build_email_html(report_date: str, accounts_data: list, all_ads: list = None
 # ---------------------------------------------------------------------------
 
 def send_daily_report():
-    print("[reporter] Fetching accounts...")
-    accounts = _get_accounts()
-    if not accounts:
-        print("[reporter] No active accounts found.")
+    clients = _load_clients()
+    if not clients:
+        print("[reporter] No clients configured.")
         return
 
     accounts_data = []
     all_ads = []
     all_ad_timeseries = []
-    for acct in accounts:
-        print(f"[reporter] Fetching insights for {acct['name']}...")
-        ins = _get_account_insights(acct["id"], "yesterday")
-        campaigns = _get_campaign_insights(acct["id"], "yesterday")
-        ads = _get_ad_insights(acct["id"], "yesterday")
-        ad_ts = _get_ad_timeseries(acct["id"])
-        all_ads.extend(ads)
-        all_ad_timeseries.extend(ad_ts)
-        accounts_data.append({**acct, "insights": ins, "campaigns": campaigns})
+
+    for client in clients:
+        token = client.get("token", "")
+        client_name = client.get("name", "")
+        if not token:
+            continue
+        print(f"[reporter] Loading accounts for {client_name}...")
+        accounts = _get_accounts(token)
+        for acct in accounts:
+            print(f"[reporter]   Fetching {acct['name']}...")
+            ins = _get_account_insights(acct["id"], token, "yesterday")
+            campaigns = _get_campaign_insights(acct["id"], token, "yesterday")
+            ads = _get_ad_insights(acct["id"], token, "yesterday")
+            ad_ts = _get_ad_timeseries(acct["id"], token)
+            all_ads.extend(ads)
+            all_ad_timeseries.extend(ad_ts)
+            accounts_data.append({**acct, "client": client_name, "insights": ins, "campaigns": campaigns})
+
+    if not accounts_data:
+        print("[reporter] No active accounts found.")
+        return
 
     all_ads.sort(key=lambda a: float(a.get("spend", 0)), reverse=True)
 

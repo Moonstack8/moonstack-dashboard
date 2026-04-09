@@ -32,14 +32,36 @@ cd dashboard && npm install
 ### 2. Configure `.env`
 
 ```env
-META_ACCESS_TOKEN=your_meta_access_token
 ANTHROPIC_API_KEY=your_anthropic_api_key
 RESEND_API_KEY=your_resend_api_key
 REPORT_EMAIL=you@example.com
 REPORT_HOUR=8
 ```
 
-### 3. Start
+`META_ACCESS_TOKEN` is no longer needed in `.env` — client tokens are managed in `config/clients.yaml` (see below).
+
+### 3. Add clients to `config/clients.yaml`
+
+Each entry is one business you manage. The token is their Meta access token. Accounts are discovered automatically on startup — no need to specify account IDs manually.
+
+```yaml
+clients:
+  - name: Acme Corp
+    token: EAAxxxxxxx...
+
+  - name: Client B
+    token: EAAyyyyyyy...
+```
+
+**To add a new client:** add an entry to `clients.yaml`, then either restart the server or call:
+
+```bash
+curl -X POST http://localhost:8000/api/clients/reload
+```
+
+This picks up the new client without a restart.
+
+### 4. Start
 
 ```bash
 ./start.sh
@@ -196,6 +218,7 @@ curl -X POST http://localhost:8000/api/reports/send-now
 | DELETE | `/api/adsets/:id` | Delete an ad set |
 | DELETE | `/api/campaigns/:id` | Delete a campaign |
 | POST | `/api/reports/send-now` | Trigger daily report immediately |
+| POST | `/api/clients/reload` | Reload clients.yaml without restart |
 | GET | `/api/health` | Health check |
 
 All insight endpoints accept a `?date_preset=` query param: `today`, `yesterday`, `last_7d`, `last_14d`, `last_30d`, `last_90d`.
@@ -233,7 +256,9 @@ All insight endpoints accept a `?date_preset=` query param: `today`, `yesterday`
 │       └── lib/
 │           ├── api.js   # Axios API client
 │           └── format.js # Number/currency/date formatters
+├── config/
+│   └── clients.yaml     # Client businesses (name + Meta token per client)
 ├── initial_tests/       # Original Meta API test scripts
-├── .env                 # API keys and config
+├── .env                 # API keys (Anthropic, Resend, report config)
 └── start.sh             # Start both servers
 ```
