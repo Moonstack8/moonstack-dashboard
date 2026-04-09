@@ -11,9 +11,34 @@ import httpx
 from typing import Optional
 from pydantic import BaseModel
 
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.background import BackgroundScheduler
+
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-app = FastAPI(title="Meta Ads Dashboard API")
+REPORT_HOUR = int(os.getenv("REPORT_HOUR", "8"))
+
+def _start_scheduler(app):
+    scheduler = BackgroundScheduler(timezone="America/New_York")
+    scheduler.add_job(
+        lambda: __import__('api.reporter', fromlist=['send_daily_report']).send_daily_report(),
+        trigger="cron",
+        hour=REPORT_HOUR,
+        minute=0,
+        id="daily_report",
+    )
+    scheduler.start()
+    app.state.scheduler = scheduler
+    print(f"[scheduler] Daily report scheduled at {REPORT_HOUR}:00 ET")
+
+@asynccontextmanager
+async def lifespan(app):
+    _start_scheduler(app)
+    yield
+    if hasattr(app.state, "scheduler"):
+        app.state.scheduler.shutdown()
+
+app = FastAPI(title="Meta Ads Dashboard API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -226,6 +251,34 @@ def get_campaign_timeseries(
 
 
 # ---------------------------------------------------------------------------
+# Delete (archives object in Meta — ads, adsets, campaigns)
+# ---------------------------------------------------------------------------
+
+def meta_delete(object_id: str) -> dict:
+    r = httpx.post(
+        f"{GRAPH_BASE}/{object_id}",
+        json={"status": "DELETED", "access_token": ACCESS_TOKEN},
+        timeout=20.0,
+    )
+    result = r.json()
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"].get("message", "Delete failed"))
+    return result
+
+@app.delete("/api/ads/{ad_id}")
+def delete_ad(ad_id: str):
+    return meta_delete(ad_id)
+
+@app.delete("/api/adsets/{adset_id}")
+def delete_adset(adset_id: str):
+    return meta_delete(adset_id)
+
+@app.delete("/api/campaigns/{campaign_id}")
+def delete_campaign(campaign_id: str):
+    return meta_delete(campaign_id)
+
+
+# ---------------------------------------------------------------------------
 # Account pages (needed for ad creation)
 # ---------------------------------------------------------------------------
 
@@ -304,9 +357,26 @@ def agent_execute(req: ExecuteRequest):
 
 
 # ---------------------------------------------------------------------------
+# Reports
+# ---------------------------------------------------------------------------
+
+@app.post("/api/reports/send-now")
+def send_report_now():
+    """Trigger the daily report immediately (for testing)."""
+    from api.reporter import send_daily_report
+    try:
+        result = send_daily_report()
+        return {"status": "sent", "result": str(result)}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "token_set": bool(ACCESS_TOKEN)}
+    return {"status": "ok", "token_set": bool(ACCESS_TOKEN), "report_hour": REPORT_HOUR}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { fmt, getConversions, getRevenue } from '../lib/format'
 import MetricCard from '../components/MetricCard'
@@ -9,6 +9,7 @@ import StatusBadge from '../components/StatusBadge'
 import DataTable from '../components/DataTable'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
+import DeleteButton from '../components/DeleteButton'
 import { DollarSign, Eye, MousePointer, TrendingUp, ChevronRight } from 'lucide-react'
 
 const CHART_METRICS = ['spend', 'impressions', 'clicks']
@@ -28,6 +29,7 @@ const CAMPAIGN_COLUMNS = [
     return b ? fmt.currency(parseInt(b) / 100) : <span className="text-gray-600">CBO</span>
   }},
   { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
+  { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="campaign" id={r.id} onDeleted={onDeleted} /> },
 ]
 
 export default function AccountView() {
@@ -35,6 +37,13 @@ export default function AccountView() {
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last_7d')
   const [chartMetrics, setChartMetrics] = useState(CHART_METRICS)
+  const queryClient = useQueryClient()
+
+  const handleCampaignDeleted = (id) => {
+    queryClient.setQueryData(['campaigns', accountId, datePreset], prev =>
+      (prev || []).filter(c => c.id !== id)
+    )
+  }
 
   const { data: overview, isLoading: loadingOv } = useQuery({
     queryKey: ['account-overview', accountId, datePreset],
@@ -149,6 +158,7 @@ export default function AccountView() {
             columns={CAMPAIGN_COLUMNS}
             data={campaigns}
             onRowClick={row => navigate(`/campaigns/${row.id}`)}
+            onRowAction={handleCampaignDeleted}
             emptyMessage="No campaigns found"
           />
         )}

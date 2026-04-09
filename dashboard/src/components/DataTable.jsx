@@ -1,4 +1,4 @@
-export default function DataTable({ columns, data, onRowClick, emptyMessage = 'No data' }) {
+export default function DataTable({ columns, data, onRowClick, onRowAction, emptyMessage = 'No data' }) {
   if (!data?.length) {
     return (
       <div className="text-center py-12 text-gray-600 text-sm">{emptyMessage}</div>
@@ -34,11 +34,12 @@ export default function DataTable({ columns, data, onRowClick, emptyMessage = 'N
               {columns.map(col => (
                 <td
                   key={col.key}
+                  onClick={col.key === 'delete' ? e => e.stopPropagation() : undefined}
                   className={`py-2.5 px-3 text-gray-300 whitespace-nowrap ${
                     col.align === 'right' ? 'text-right' : ''
                   }`}
                 >
-                  {col.render ? col.render(row) : row[col.key] ?? '—'}
+                  {col.render ? col.render(row, onRowAction) : row[col.key] ?? '—'}
                 </td>
               ))}
             </tr>

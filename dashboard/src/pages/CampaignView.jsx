@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { fmt, getConversions, getRevenue } from '../lib/format'
 import MetricCard from '../components/MetricCard'
@@ -9,6 +9,7 @@ import StatusBadge from '../components/StatusBadge'
 import DataTable from '../components/DataTable'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
+import DeleteButton from '../components/DeleteButton'
 import { ChevronRight, ArrowLeft } from 'lucide-react'
 
 const ADSET_COLUMNS = [
@@ -26,12 +27,20 @@ const ADSET_COLUMNS = [
   }},
   { key: 'optimization', label: 'Goal', render: r => <span className="text-xs text-gray-400">{r.optimization_goal?.replace(/_/g, ' ')}</span> },
   { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
+  { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="adset" id={r.id} onDeleted={onDeleted} /> },
 ]
 
 export default function CampaignView() {
   const { campaignId } = useParams()
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last_7d')
+  const queryClient = useQueryClient()
+
+  const handleAdsetDeleted = (id) => {
+    queryClient.setQueryData(['adsets', campaignId, datePreset], prev =>
+      (prev || []).filter(a => a.id !== id)
+    )
+  }
 
   const { data: timeseries = [], isLoading: loadingTs } = useQuery({
     queryKey: ['campaign-timeseries', campaignId, datePreset],
@@ -117,6 +126,7 @@ export default function CampaignView() {
             columns={ADSET_COLUMNS}
             data={adsets}
             onRowClick={row => navigate(`/adsets/${row.id}`)}
+            onRowAction={handleAdsetDeleted}
             emptyMessage="No ad sets found"
           />
         )}

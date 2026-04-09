@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { fmt, getConversions, getRevenue } from '../lib/format'
 import MetricCard from '../components/MetricCard'
@@ -8,7 +8,8 @@ import StatusBadge from '../components/StatusBadge'
 import DataTable from '../components/DataTable'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import DeleteButton from '../components/DeleteButton'
+import { ArrowLeft } from 'lucide-react'
 
 const AD_COLUMNS = [
   {
@@ -30,12 +31,14 @@ const AD_COLUMNS = [
   { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
   { key: 'reach', label: 'Reach', align: 'right', render: r => fmt.number(r.insights?.reach) },
   { key: 'frequency', label: 'Freq.', align: 'right', render: r => parseFloat(r.insights?.frequency || 0).toFixed(2) },
+  { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="ad" id={r.id} onDeleted={onDeleted} /> },
 ]
 
 export default function AdSetView() {
   const { adsetId } = useParams()
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last_7d')
+  const queryClient = useQueryClient()
 
   const { data: ads = [], isLoading } = useQuery({
     queryKey: ['ads', adsetId, datePreset],
@@ -43,6 +46,12 @@ export default function AdSetView() {
     refetchInterval: 30_000,
     staleTime: 15_000,
   })
+
+  const handleAdDeleted = (id) => {
+    queryClient.setQueryData(['ads', adsetId, datePreset], prev =>
+      (prev || []).filter(a => a.id !== id)
+    )
+  }
 
   const totalSpend = ads.reduce((s, a) => s + (parseFloat(a.insights?.spend) || 0), 0)
   const totalImpressions = ads.reduce((s, a) => s + (parseInt(a.insights?.impressions) || 0), 0)
@@ -93,6 +102,7 @@ export default function AdSetView() {
           <DataTable
             columns={AD_COLUMNS}
             data={ads}
+            onRowAction={handleAdDeleted}
             emptyMessage="No ads found"
           />
         )}
