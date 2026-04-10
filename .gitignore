@@ -10,3 +10,4 @@ manifests/
 rollback/
 _private/
 .mcp.json
+config
