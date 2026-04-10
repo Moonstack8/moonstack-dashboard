@@ -107,9 +107,22 @@ def execute_plan(
     objective = campaign_spec["objective"]
     destination_type = OBJECTIVE_DESTINATION.get(objective, "WEBSITE")
 
-    # 2. Create Ad Sets
+    # 2. Create Ad Sets — only create adsets that have at least one ad with an image
+    def _adset_has_image(adset_idx):
+        return any(
+            image_hashes.get(str(i))
+            for i, ad in enumerate(plan["ads"])
+            if ad.get("adset_index", 0) == adset_idx
+        )
+
     adset_ids = []
-    for adset_spec in plan["adsets"]:
+    for adset_idx, adset_spec in enumerate(plan["adsets"]):
+        if not _adset_has_image(adset_idx):
+            adset_ids.append(None)
+            log.append(f"  — Skipped ad set: {adset_spec['name']} (no ads with images)")
+            print(f"[executor] Skipping adset[{adset_idx}] '{adset_spec['name']}' — no ads with images")
+            continue
+
         adset_payload = {
             "name": adset_spec["name"],
             "campaign_id": campaign_id,
@@ -137,13 +150,20 @@ def execute_plan(
         log.append(f"  ✓ Ad Set created: {adset_spec['name']} ({adset_id})")
 
     # 3. Create Ads
+    print(f"\n[executor] image_hashes received: {image_hashes}")
+    print(f"[executor] plan has {len(plan['ads'])} ad(s)")
     for i, ad_spec in enumerate(plan["ads"]):
         adset_idx = ad_spec.get("adset_index", 0)
         adset_id = adset_ids[adset_idx] if adset_idx < len(adset_ids) else adset_ids[0]
 
         image_hash = image_hashes.get(str(i))
+        print(f"[executor] ad[{i}] '{ad_spec['name']}' — hash: {image_hash or 'NONE (will skip)'}")
         if not image_hash:
             log.append(f"    — Skipped ad: {ad_spec['name']} (no image provided)")
+            continue
+
+        if adset_id is None:
+            log.append(f"    — Skipped ad: {ad_spec['name']} (adset was skipped)")
             continue
 
         # Create ad creative

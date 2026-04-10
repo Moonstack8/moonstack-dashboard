@@ -199,6 +199,49 @@ curl -X POST http://localhost:8000/api/reports/send-now
 
 ---
 
+## Client Onboarding
+
+### The agency approach (recommended)
+
+Instead of having clients create system users and tokens, use **Business Manager Partner Access**. You use your own Moonstack token — clients just grant you access to their account.
+
+**What the client does (3 steps):**
+
+1. **Create a Facebook Page** — [facebook.com/pages](https://www.facebook.com/pages) → Create Page
+2. **Set up a Business Portfolio + Ad Account**
+   - [business.facebook.com](https://business.facebook.com) → Business Portfolio → Create a business portfolio → attach the Page
+   - Settings → Ad Accounts → Create new ad account → add payment info
+3. **Send you three IDs:**
+   - **Business Portfolio ID:** Settings → Business Info → Business Portfolio ID
+   - **Ad Account ID:** `business.facebook.com/latest/settings/ad_accounts`
+   - **Page ID:** `business.facebook.com/latest/settings/pages`
+
+**What you do:**
+
+1. Go to your Moonstack Business Manager → Settings → Requests → **Partner Requests** → Send Request
+2. Enter the client's Business Portfolio ID and request access to their Ad Account and Page
+3. Client clicks Accept
+4. Go to Business Settings → **System Users** → click the Moonstack system user → **Assign Assets**
+5. Under **Ad Accounts**, the client's account will now appear — assign it with **Full Control**
+6. **Regenerate the system user token** (Generate New Token → Never expiry → all permissions) and update `config/clients.yaml`
+7. Run `curl -X POST http://localhost:8000/api/clients/reload` — their account will appear in the dashboard
+
+No Meta app setup. No system users. No token generation on the client's side.
+
+---
+
+### If a client needs a token (advanced)
+
+Only needed if you want the client to have their own system user instead of partner access.
+
+1. Client creates Business Portfolio + Ad Account (steps 1–2 above)
+2. **Create a System User:** Business Settings → System Users → New → role: Admin
+3. Assign the system user to the Ad Account and Page (Full Control)
+4. **Generate token:** System Users → Generate Token → expiry: Never → select all permissions
+5. Client sends you the token → add to `config/clients.yaml`
+
+---
+
 ## API Reference
 
 | Method | Endpoint | Description |
