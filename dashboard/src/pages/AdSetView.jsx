@@ -9,35 +9,14 @@ import DataTable from '../components/DataTable'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
 import DeleteButton from '../components/DeleteButton'
-import { ArrowLeft } from 'lucide-react'
-
-const AD_COLUMNS = [
-  {
-    key: 'thumbnail',
-    label: '',
-    render: r => r.creative?.thumbnail_url ? (
-      <img src={r.creative.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover bg-gray-800" />
-    ) : (
-      <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center text-gray-600 text-xs">Ad</div>
-    ),
-  },
-  { key: 'name', label: 'Ad', render: r => <span className="font-medium text-white">{r.name}</span> },
-  { key: 'status', label: 'Status', render: r => <StatusBadge status={r.effective_status || r.status} /> },
-  { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
-  { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
-  { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
-  { key: 'ctr', label: 'CTR', align: 'right', render: r => fmt.pct(r.insights?.ctr) },
-  { key: 'cpc', label: 'CPC', align: 'right', render: r => fmt.currency(r.insights?.cpc) },
-  { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
-  { key: 'reach', label: 'Reach', align: 'right', render: r => fmt.number(r.insights?.reach) },
-  { key: 'frequency', label: 'Freq.', align: 'right', render: r => parseFloat(r.insights?.frequency || 0).toFixed(2) },
-  { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="ad" id={r.id} onDeleted={onDeleted} /> },
-]
+import OptimizerPanel from '../components/OptimizerPanel'
+import { ArrowLeft, Zap } from 'lucide-react'
 
 export default function AdSetView() {
   const { adsetId } = useParams()
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last_7d')
+  const [optimizingAd, setOptimizingAd] = useState(null)
   const queryClient = useQueryClient()
 
   const { data: ads = [], isLoading } = useQuery({
@@ -60,6 +39,46 @@ export default function AdSetView() {
   const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0
   const totalConversions = ads.reduce((s, a) => s + getConversions(a.insights?.actions || []), 0)
   const totalRevenue = ads.reduce((s, a) => s + getRevenue(a.insights?.action_values || []), 0)
+
+  const AD_COLUMNS = [
+    {
+      key: 'thumbnail',
+      label: '',
+      render: r => r.creative?.thumbnail_url ? (
+        <img src={r.creative.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover bg-gray-800" />
+      ) : (
+        <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center text-gray-600 text-xs">Ad</div>
+      ),
+    },
+    { key: 'name', label: 'Ad', render: r => <span className="font-medium text-white">{r.name}</span> },
+    { key: 'status', label: 'Status', render: r => <StatusBadge status={r.effective_status || r.status} /> },
+    { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
+    { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
+    { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
+    { key: 'ctr', label: 'CTR', align: 'right', render: r => fmt.pct(r.insights?.ctr) },
+    { key: 'cpc', label: 'CPC', align: 'right', render: r => fmt.currency(r.insights?.cpc) },
+    { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
+    { key: 'reach', label: 'Reach', align: 'right', render: r => fmt.number(r.insights?.reach) },
+    { key: 'frequency', label: 'Freq.', align: 'right', render: r => parseFloat(r.insights?.frequency || 0).toFixed(2) },
+    {
+      key: 'optimize',
+      label: '',
+      render: r => (
+        <button
+          onClick={e => { e.stopPropagation(); setOptimizingAd(r) }}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-yellow-400 hover:bg-yellow-400/10 transition-colors"
+          title="Optimize this ad"
+        >
+          <Zap size={11} />
+          Optimize
+        </button>
+      ),
+    },
+    { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="ad" id={r.id} onDeleted={onDeleted} /> },
+  ]
+
+  // find account_id from first ad (Meta returns it in the ad object)
+  const accountId = ads[0]?.account_id || ''
 
   return (
     <div>
@@ -107,6 +126,15 @@ export default function AdSetView() {
           />
         )}
       </div>
+
+      {/* Optimizer slide-over */}
+      {optimizingAd && (
+        <OptimizerPanel
+          ad={optimizingAd}
+          accountId={accountId}
+          onClose={() => setOptimizingAd(null)}
+        />
+      )}
     </div>
   )
 }

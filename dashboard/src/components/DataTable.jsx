@@ -34,7 +34,7 @@ export default function DataTable({ columns, data, onRowClick, onRowAction, empt
               {columns.map(col => (
                 <td
                   key={col.key}
-                  onClick={col.key === 'delete' ? e => e.stopPropagation() : undefined}
+                  onClick={col.key === 'delete' || col.key === 'optimize' ? e => e.stopPropagation() : undefined}
                   className={`py-2.5 px-3 text-gray-300 whitespace-nowrap ${
                     col.align === 'right' ? 'text-right' : ''
                   }`}

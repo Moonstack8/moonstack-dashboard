@@ -218,7 +218,7 @@ Instead of having clients create system users and tokens, use **Business Manager
 
 **What you do:**
 
-1. Go to your Moonstack Business Manager → Settings → Requests → **Partner Requests** → Send Request
+1. Go to your Moonstack Business Manager → Settings → Partners → Add Partner
 2. Enter the client's Business Portfolio ID and request access to their Ad Account and Page
 3. Client clicks Accept
 4. Go to Business Settings → **System Users** → click the Moonstack system user → **Assign Assets**

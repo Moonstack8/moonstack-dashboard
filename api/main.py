@@ -443,6 +443,28 @@ def agent_plan(req: PlanRequest):
 
 
 # ---------------------------------------------------------------------------
+# Agent: Optimize existing ad
+# ---------------------------------------------------------------------------
+
+class OptimizeRequest(BaseModel):
+    ad_id: str
+    account_id: str
+
+@app.post("/api/agent/optimize")
+def agent_optimize(req: OptimizeRequest):
+    from api.optimizer import run_optimizer_agent
+    token = _token_for(req.account_id)
+    return StreamingResponse(
+        run_optimizer_agent(req.ad_id, req.account_id, token),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # Agent: Execute approved plan
 # ---------------------------------------------------------------------------
 
