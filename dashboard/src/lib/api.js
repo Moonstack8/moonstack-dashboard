@@ -5,6 +5,20 @@ const client = axios.create({
   timeout: 30000,
 })
 
+// Injected by AuthSetup in App.jsx once Clerk is ready
+let _getToken = null
+export function setTokenGetter(fn) { _getToken = fn }
+export async function getAuthHeaders() {
+  const token = _getToken ? await _getToken() : null
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+client.interceptors.request.use(async config => {
+  const headers = await getAuthHeaders()
+  Object.assign(config.headers, headers)
+  return config
+})
+
 export const api = {
   getAccounts: () =>
     client.get('/api/accounts').then(r => r.data),

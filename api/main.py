@@ -4,11 +4,14 @@ Proxies Meta Graph API calls and serves data to the React frontend.
 """
 import os
 import yaml
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 import httpx
+import jwt
+from jwt import PyJWKClient
 from typing import Optional
 from pydantic import BaseModel
 
@@ -110,6 +113,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ---------------------------------------------------------------------------
+# Clerk JWT verification
+# ---------------------------------------------------------------------------
+CLERK_JWKS_URL = os.getenv("CLERK_JWKS_URL", "")
+_jwks_client = None
+
+def _get_jwks_client():
+    global _jwks_client
+    if _jwks_client is None and CLERK_JWKS_URL:
+        _jwks_client = PyJWKClient(CLERK_JWKS_URL, cache_keys=True)
+    return _jwks_client
+
+def verify_clerk_token(token: str) -> dict:
+    client = _get_jwks_client()
+    signing_key = client.get_signing_key_from_jwt(token)
+    return jwt.decode(token, signing_key.key, algorithms=["RS256"],
+                      options={"verify_aud": False})
+
+class ClerkAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not CLERK_JWKS_URL:
+            request.state.role = "admin"
+            request.state.allowed_accounts = []
+            return await call_next(request)
+        if request.method == "OPTIONS" or request.url.path in ("/api/health", "/api/clients/reload"):
+            return await call_next(request)
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        try:
+            claims = verify_clerk_token(auth[7:])
+            meta = claims.get("public_metadata", {})
+            request.state.role = meta.get("role", "client")
+            request.state.allowed_accounts = meta.get("accounts", [])
+        except Exception:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        return await call_next(request)
+
+app.add_middleware(ClerkAuthMiddleware)
+
 # Keep ACCESS_TOKEN for backwards compat (agent, executor, upload)
 ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN", "")
 
@@ -167,7 +210,7 @@ INSIGHT_FIELDS = (
 # ---------------------------------------------------------------------------
 
 @app.get("/api/accounts")
-def get_accounts():
+def get_accounts(request: Request):
     """List all ad accounts across all configured clients."""
     results = []
     seen = set()
@@ -185,6 +228,10 @@ def get_accounts():
                 seen.add(acct["id"])
                 acct["client"] = client.get("name", "")
                 results.append(acct)
+    role = getattr(request.state, "role", "client")
+    if role != "admin":
+        allowed = getattr(request.state, "allowed_accounts", [])
+        results = [a for a in results if a["id"] in allowed]
     return results
 
 

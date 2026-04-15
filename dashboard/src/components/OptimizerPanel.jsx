@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getAuthHeaders } from '../lib/api'
 import { X, Loader, CheckCircle, Copy, Check, Zap, Sparkles, RefreshCw } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -131,12 +132,13 @@ export default function OptimizerPanel({ ad, accountId, onClose }) {
     let collectedText = ''
     let collectedVariations = null
 
+    getAuthHeaders().then(authHeaders =>
     fetch('http://localhost:8000/api/agent/optimize', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ ad_id: ad.id, account_id: accountId }),
       signal: controller.signal,
-    }).then(async res => {
+    })).then(async res => {
       if (!res.ok) {
         setError(`Server error: ${res.status}`)
         setIsRunning(false)

@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Users, ChevronRight, Sparkles, Sun, Moon } from 'lucide-react'
+import { UserButton, useUser } from '@clerk/clerk-react'
 import moonstackLogo from '../assets/moonstack-logo.png'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -13,6 +14,14 @@ export default function Sidebar() {
   })
 
   const { theme, toggle } = useTheme()
+  const { user } = useUser()
+
+  const role = user?.publicMetadata?.role || 'client'
+  const allowedAccounts = user?.publicMetadata?.accounts || []
+
+  const visibleAccounts = role === 'admin'
+    ? accounts
+    : accounts.filter(a => allowedAccounts.includes(a.id))
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 bg-surface border-r border-rim flex flex-col z-40">
@@ -43,29 +52,31 @@ export default function Sidebar() {
           Overview
         </NavLink>
 
-        <NavLink
-          to="/builder"
-          className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${
-              isActive
-                ? 'bg-brand-500/20 text-brand-400'
-                : 'text-gray-400 hover:text-ink hover:bg-ink/5'
-            }`
-          }
-        >
-          <Sparkles size={16} />
-          Campaign Builder
-        </NavLink>
+        {role === 'admin' && (
+          <NavLink
+            to="/builder"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${
+                isActive
+                  ? 'bg-brand-500/20 text-brand-400'
+                  : 'text-gray-400 hover:text-ink hover:bg-ink/5'
+              }`
+            }
+          >
+            <Sparkles size={16} />
+            Campaign Builder
+          </NavLink>
+        )}
 
         {/* Accounts */}
         <div className="mt-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600 px-3 mb-2">
             Accounts
           </p>
-          {accounts.length === 0 && (
+          {visibleAccounts.length === 0 && (
             <p className="text-xs text-gray-600 px-3">No accounts found</p>
           )}
-          {accounts.map(acct => (
+          {visibleAccounts.map(acct => (
             <NavLink
               key={acct.id}
               to={`/accounts/${acct.id}`}
@@ -89,14 +100,19 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-rim flex items-center justify-between">
-        <p className="text-[10px] text-gray-500">Auto-refresh every 30s</p>
-        <button
-          onClick={toggle}
-          className="p-1.5 rounded-lg hover:bg-ink/5 text-gray-500 hover:text-ink transition-colors"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-        </button>
+        <UserButton />
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-500 mr-1">
+            {role === 'admin' ? 'Admin' : 'Client'}
+          </span>
+          <button
+            onClick={toggle}
+            className="p-1.5 rounded-lg hover:bg-ink/5 text-gray-500 hover:text-ink transition-colors"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
+        </div>
       </div>
     </aside>
   )
