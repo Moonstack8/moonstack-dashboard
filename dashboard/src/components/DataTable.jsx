@@ -9,7 +9,7 @@ export default function DataTable({ columns, data, onRowClick, onRowAction, empt
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/5">
+          <tr className="border-b border-rim">
             {columns.map(col => (
               <th
                 key={col.key}
@@ -27,15 +27,15 @@ export default function DataTable({ columns, data, onRowClick, onRowAction, empt
             <tr
               key={row.id || i}
               onClick={() => onRowClick?.(row)}
-              className={`border-b border-white/5 transition-colors ${
-                onRowClick ? 'cursor-pointer hover:bg-white/3' : ''
+              className={`border-b border-rim transition-colors ${
+                onRowClick ? 'cursor-pointer hover:bg-ink/[0.03]' : ''
               }`}
             >
               {columns.map(col => (
                 <td
                   key={col.key}
                   onClick={col.key === 'delete' || col.key === 'optimize' ? e => e.stopPropagation() : undefined}
-                  className={`py-2.5 px-3 text-gray-300 whitespace-nowrap ${
+                  className={`py-2.5 px-3 text-ink/70 whitespace-nowrap ${
                     col.align === 'right' ? 'text-right' : ''
                   }`}
                 >

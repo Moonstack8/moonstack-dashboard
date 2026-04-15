@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, TrendingUp, Users, ChevronRight, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Users, ChevronRight, Sparkles, Sun, Moon } from 'lucide-react'
+import moonstackLogo from '../assets/moonstack-logo.png'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { useTheme } from '../lib/theme'
 
 export default function Sidebar() {
   const { data: accounts = [] } = useQuery({
@@ -10,15 +12,17 @@ export default function Sidebar() {
     staleTime: 60_000,
   })
 
+  const { theme, toggle } = useTheme()
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-60 bg-[#13151f] border-r border-white/5 flex flex-col z-40">
+    <aside className="fixed left-0 top-0 h-screen w-60 bg-surface border-r border-rim flex flex-col z-40">
       {/* Logo */}
-      <div className="px-5 py-4 border-b border-white/5">
+      <div className="px-5 py-4 border-b border-rim">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center">
-            <TrendingUp size={14} className="text-white" />
+          <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center">
+            <img src={moonstackLogo} alt="Moonstack" className="w-5 h-5 object-contain" />
           </div>
-          <span className="text-white font-semibold text-sm tracking-wide">AdPilot</span>
+          <span className="text-ink font-semibold text-sm tracking-wide">Moonstack Dashboard</span>
         </div>
       </div>
 
@@ -31,7 +35,7 @@ export default function Sidebar() {
             `flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${
               isActive
                 ? 'bg-brand-500/20 text-brand-400'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                : 'text-gray-400 hover:text-ink hover:bg-ink/5'
             }`
           }
         >
@@ -45,7 +49,7 @@ export default function Sidebar() {
             `flex items-center gap-3 px-3 py-2 rounded-lg text-sm mb-1 transition-colors ${
               isActive
                 ? 'bg-brand-500/20 text-brand-400'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                : 'text-gray-400 hover:text-ink hover:bg-ink/5'
             }`
           }
         >
@@ -69,7 +73,7 @@ export default function Sidebar() {
                 `flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors ${
                   isActive
                     ? 'bg-brand-500/20 text-brand-400'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    : 'text-gray-400 hover:text-ink hover:bg-ink/5'
                 }`
               }
             >
@@ -84,8 +88,15 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-white/5">
-        <p className="text-[10px] text-gray-600">Auto-refresh every 30s</p>
+      <div className="px-4 py-3 border-t border-rim flex items-center justify-between">
+        <p className="text-[10px] text-gray-500">Auto-refresh every 30s</p>
+        <button
+          onClick={toggle}
+          className="p-1.5 rounded-lg hover:bg-ink/5 text-gray-500 hover:text-ink transition-colors"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
       </div>
     </aside>
   )

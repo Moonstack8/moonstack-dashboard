@@ -12,6 +12,12 @@ export default {
           700: '#2c44b0',
           900: '#1a2a6e',
         },
+        // Semantic theme tokens — driven by CSS variables in index.css
+        surface:  'rgb(var(--bg-surface)  / <alpha-value>)',
+        elevated: 'rgb(var(--bg-elevated) / <alpha-value>)',
+        ink:      'rgb(var(--color-ink)   / <alpha-value>)',
+        rim:      'var(--border-subtle)',
+        'rim-2':  'var(--border-default)',
       },
     },
   },

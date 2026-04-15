@@ -1,4 +1,4 @@
-# AdPilot
+# Moonstack Dashboard
 
 A local Meta Ads management platform for agencies. Monitor all client accounts from a unified dashboard, autonomously create campaigns with AI, and receive daily performance reports by email.
 

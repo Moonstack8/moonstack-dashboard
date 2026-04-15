@@ -53,7 +53,7 @@ export default function Overview() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-white">Overview</h1>
+          <h1 className="text-xl font-bold text-ink">Overview</h1>
           <p className="text-sm text-gray-500 mt-0.5">{accounts.length} account{accounts.length !== 1 ? 's' : ''} connected</p>
         </div>
         <DatePresetPicker value={datePreset} onChange={setDatePreset} />
@@ -97,33 +97,33 @@ export default function Overview() {
               <div
                 key={acct.id}
                 onClick={() => navigate(`/accounts/${acct.id}`)}
-                className="bg-[#1a1d27] border border-white/5 rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer hover:border-white/10 transition-colors"
+                className="bg-elevated border border-rim rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer hover:border-rim-2 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-brand-500/20 flex items-center justify-center text-brand-400 text-xs font-bold shrink-0">
                     {acct.name?.[0]?.toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{acct.name}</p>
+                    <p className="text-sm font-medium text-ink truncate">{acct.name}</p>
                     <p className="text-xs text-gray-500">{acct.id} · {acct.currency}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6 shrink-0 ml-4">
                   <div className="text-right hidden sm:block">
                     <p className="text-xs text-gray-500">Spend</p>
-                    <p className="text-sm font-semibold text-white">{fmt.currency(ins.spend, acct.currency)}</p>
+                    <p className="text-sm font-semibold text-ink">{fmt.currency(ins.spend, acct.currency)}</p>
                   </div>
                   <div className="text-right hidden md:block">
                     <p className="text-xs text-gray-500">Impressions</p>
-                    <p className="text-sm font-semibold text-white">{fmt.number(ins.impressions)}</p>
+                    <p className="text-sm font-semibold text-ink">{fmt.number(ins.impressions)}</p>
                   </div>
                   <div className="text-right hidden lg:block">
                     <p className="text-xs text-gray-500">CTR</p>
-                    <p className="text-sm font-semibold text-white">{fmt.pct(ins.ctr)}</p>
+                    <p className="text-sm font-semibold text-ink">{fmt.pct(ins.ctr)}</p>
                   </div>
                   <div className="text-right hidden lg:block">
                     <p className="text-xs text-gray-500">CPC</p>
-                    <p className="text-sm font-semibold text-white">{fmt.currency(ins.cpc, acct.currency)}</p>
+                    <p className="text-sm font-semibold text-ink">{fmt.currency(ins.cpc, acct.currency)}</p>
                   </div>
                   <StatusBadge status={acct.account_status === 1 ? 'ACTIVE' : 'PAUSED'} />
                 </div>

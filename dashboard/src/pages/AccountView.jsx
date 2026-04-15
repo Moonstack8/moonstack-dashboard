@@ -2,41 +2,27 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { fmt, getConversions, getRevenue } from '../lib/format'
+import { fmt, getConversions, getRevenue, deriveStatus } from '../lib/format'
 import MetricCard from '../components/MetricCard'
 import SparkChart from '../components/SparkChart'
-import StatusBadge from '../components/StatusBadge'
 import DataTable from '../components/DataTable'
+import StatusToggle from '../components/StatusToggle'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
 import DeleteButton from '../components/DeleteButton'
 import { DollarSign, Eye, MousePointer, TrendingUp, ChevronRight } from 'lucide-react'
 
-const CHART_METRICS = ['spend', 'impressions', 'clicks']
-
-const CAMPAIGN_COLUMNS = [
-  { key: 'name', label: 'Campaign' },
-  { key: 'status', label: 'Status', render: r => <StatusBadge status={r.effective_status || r.status} /> },
-  { key: 'objective', label: 'Objective', render: r => <span className="text-xs text-gray-400">{r.objective?.replace(/_/g, ' ')}</span> },
-  { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
-  { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
-  { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
-  { key: 'ctr', label: 'CTR', align: 'right', render: r => fmt.pct(r.insights?.ctr) },
-  { key: 'cpc', label: 'CPC', align: 'right', render: r => fmt.currency(r.insights?.cpc) },
-  { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
-  { key: 'budget', label: 'Budget', align: 'right', render: r => {
-    const b = r.daily_budget || r.lifetime_budget
-    return b ? fmt.currency(parseInt(b) / 100) : <span className="text-gray-600">CBO</span>
-  }},
-  { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
-  { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="campaign" id={r.id} onDeleted={onDeleted} /> },
+const CHART_METRICS = [
+  { key: 'spend', label: 'Spend' },
+  { key: 'impressions', label: 'Impressions' },
+  { key: 'clicks', label: 'Clicks' },
 ]
 
 export default function AccountView() {
   const { accountId } = useParams()
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last_7d')
-  const [chartMetrics, setChartMetrics] = useState(CHART_METRICS)
+  const [chartMetric, setChartMetric] = useState('spend')
   const queryClient = useQueryClient()
 
   const handleCampaignDeleted = (id) => {
@@ -44,6 +30,30 @@ export default function AccountView() {
       (prev || []).filter(c => c.id !== id)
     )
   }
+
+  const handleCampaignStatusUpdated = (id, newStatus) => {
+    queryClient.setQueryData(['campaigns', accountId, datePreset], prev =>
+      (prev || []).map(c => c.id === id ? { ...c, status: newStatus, effective_status: newStatus } : c)
+    )
+  }
+
+  const CAMPAIGN_COLUMNS = [
+    { key: 'name', label: 'Campaign' },
+    { key: 'status', label: 'Status', render: r => <StatusToggle status={deriveStatus(r, 'stop_time')} type="campaign" id={r.id} onUpdated={handleCampaignStatusUpdated} /> },
+    { key: 'objective', label: 'Objective', render: r => <span className="text-xs text-gray-400">{r.objective?.replace(/_/g, ' ')}</span> },
+    { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
+    { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
+    { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
+    { key: 'ctr', label: 'CTR', align: 'right', render: r => fmt.pct(r.insights?.ctr) },
+    { key: 'cpc', label: 'CPC', align: 'right', render: r => fmt.currency(r.insights?.cpc) },
+    { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
+    { key: 'budget', label: 'Budget', align: 'right', render: r => {
+      const b = r.daily_budget || r.lifetime_budget
+      return b ? fmt.currency(parseInt(b) / 100) : <span className="text-gray-600">CBO</span>
+    }},
+    { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
+    { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="campaign" id={r.id} onDeleted={onDeleted} /> },
+  ]
 
   const { data: overview, isLoading: loadingOv } = useQuery({
     queryKey: ['account-overview', accountId, datePreset],
@@ -81,7 +91,7 @@ export default function AccountView() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-xs text-gray-500 mb-1">Account</p>
-          <h1 className="text-xl font-bold text-white">{info.name || accountId}</h1>
+          <h1 className="text-xl font-bold text-ink">{info.name || accountId}</h1>
           <p className="text-xs text-gray-600 mt-0.5">{accountId} · {info.currency} · {info.timezone_name}</p>
         </div>
         <DatePresetPicker value={datePreset} onChange={setDatePreset} />
@@ -109,25 +119,21 @@ export default function AccountView() {
       </div>
 
       {/* Chart */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4 mb-6">
+      <div className="bg-elevated border border-rim rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-white">Performance Over Time</h2>
-          <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-ink">Performance Over Time</h2>
+          <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-0.5">
             {CHART_METRICS.map(m => (
               <button
-                key={m}
-                onClick={() =>
-                  setChartMetrics(prev =>
-                    prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
-                  )
-                }
-                className={`text-xs px-2 py-1 rounded-md border transition-colors ${
-                  chartMetrics.includes(m)
-                    ? 'border-brand-500/50 bg-brand-500/10 text-brand-400'
-                    : 'border-white/10 text-gray-600'
+                key={m.key}
+                onClick={() => setChartMetric(m.key)}
+                className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                  chartMetric === m.key
+                    ? 'bg-ink/10 text-ink font-medium'
+                    : 'text-gray-500 hover:text-ink/70'
                 }`}
               >
-                {m}
+                {m.label}
               </button>
             ))}
           </div>
@@ -141,14 +147,14 @@ export default function AccountView() {
             No time series data
           </div>
         ) : (
-          <SparkChart data={timeseries} metrics={chartMetrics.length ? chartMetrics : ['spend']} />
+          <SparkChart data={timeseries} metric={chartMetric} />
         )}
       </div>
 
       {/* Campaigns */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Campaigns</h2>
+      <div className="bg-elevated border border-rim rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-rim flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">Campaigns</h2>
           <span className="text-xs text-gray-500">{campaigns.length} total</span>
         </div>
         {loadingCampaigns ? (

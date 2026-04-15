@@ -6,61 +6,74 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts'
 import { fmt } from '../lib/format'
+import { useTheme } from '../lib/theme'
 
-const CustomTooltip = ({ active, payload, label }) => {
+const COLORS = {
+  spend: '#3b5bdb',
+  impressions: '#0ea5e9',
+  clicks: '#10b981',
+  ctr: '#f59e0b',
+  cpc: '#ec4899',
+  cpm: '#8b5cf6',
+}
+
+function formatValue(metric, value) {
+  if (metric === 'spend' || metric === 'cpc' || metric === 'cpm') return fmt.currency(value)
+  if (metric === 'ctr') return `${value.toFixed(2)}%`
+  return fmt.number(value)
+}
+
+function formatTick(metric, value) {
+  if (metric === 'spend' || metric === 'cpc' || metric === 'cpm') {
+    if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`
+    return `$${value.toFixed(0)}`
+  }
+  if (metric === 'ctr') return `${value.toFixed(1)}%`
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
+  return value
+}
+
+const CustomTooltip = ({ active, payload, label, metric }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-[#1e2130] border border-white/10 rounded-lg px-3 py-2 text-xs shadow-xl">
+    <div className="bg-elevated border border-rim-2 rounded-lg px-3 py-2 text-xs shadow-xl">
       <p className="text-gray-400 mb-1">{label}</p>
-      {payload.map(p => (
-        <div key={p.name} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-          <span className="text-gray-300 capitalize">{p.name}:</span>
-          <span className="text-white font-medium">
-            {p.name === 'spend' ? fmt.currency(p.value) : fmt.number(p.value)}
-          </span>
-        </div>
-      ))}
+      <div className="flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full" style={{ background: COLORS[metric] }} />
+        <span className="text-ink/70 capitalize">{metric}:</span>
+        <span className="text-ink font-medium">{formatValue(metric, payload[0].value)}</span>
+      </div>
     </div>
   )
 }
 
-export default function SparkChart({ data = [], metrics = ['spend', 'impressions', 'clicks'] }) {
-  const COLORS = {
-    spend: '#3b5bdb',
-    impressions: '#0ea5e9',
-    clicks: '#10b981',
-    ctr: '#f59e0b',
-    cpc: '#ec4899',
-    cpm: '#8b5cf6',
-  }
+export default function SparkChart({ data = [], metric = 'spend' }) {
+  const { theme } = useTheme()
+  const color = COLORS[metric] ?? '#3b5bdb'
+  const gridStroke = theme === 'light' ? '#00000008' : '#ffffff08'
 
   const formatted = data.map(d => ({
-    ...d,
     date: fmt.date(d.date_start),
-    spend: parseFloat(d.spend || 0),
-    impressions: parseInt(d.impressions || 0),
-    clicks: parseInt(d.clicks || 0),
-    ctr: parseFloat(d.ctr || 0),
-    cpc: parseFloat(d.cpc || 0),
-    cpm: parseFloat(d.cpm || 0),
+    value: metric === 'spend' || metric === 'cpc' || metric === 'cpm'
+      ? parseFloat(d[metric] || 0)
+      : metric === 'ctr'
+      ? parseFloat(d[metric] || 0)
+      : parseInt(d[metric] || 0),
   }))
 
   return (
     <ResponsiveContainer width="100%" height={220}>
       <AreaChart data={formatted} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
         <defs>
-          {metrics.map(m => (
-            <linearGradient key={m} id={`grad-${m}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={COLORS[m]} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={COLORS[m]} stopOpacity={0} />
-            </linearGradient>
-          ))}
+          <linearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
         <XAxis
           dataKey="date"
           tick={{ fill: '#6b7280', fontSize: 11 }}
@@ -72,24 +85,19 @@ export default function SparkChart({ data = [], metrics = ['spend', 'impressions
           tick={{ fill: '#6b7280', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
-          width={45}
+          width={48}
+          tickFormatter={v => formatTick(metric, v)}
         />
-        <Tooltip content={<CustomTooltip />} />
-        <Legend
-          wrapperStyle={{ fontSize: '11px', color: '#9ca3af', paddingTop: '8px' }}
+        <Tooltip content={<CustomTooltip metric={metric} />} />
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke={color}
+          strokeWidth={2}
+          fill={`url(#grad-${metric})`}
+          dot={false}
+          activeDot={{ r: 4, strokeWidth: 0 }}
         />
-        {metrics.map(m => (
-          <Area
-            key={m}
-            type="monotone"
-            dataKey={m}
-            stroke={COLORS[m]}
-            strokeWidth={2}
-            fill={`url(#grad-${m})`}
-            dot={false}
-            activeDot={{ r: 4, strokeWidth: 0 }}
-          />
-        ))}
       </AreaChart>
     </ResponsiveContainer>
   )

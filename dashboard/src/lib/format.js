@@ -28,6 +28,9 @@ export const statusColor = (status) => {
   switch (status?.toUpperCase()) {
     case 'ACTIVE': return 'text-green-400'
     case 'PAUSED': return 'text-yellow-400'
+    case 'CAMPAIGN_PAUSED':
+    case 'ADSET_PAUSED': return 'text-yellow-600'
+    case 'COMPLETED': return 'text-blue-400'
     case 'ARCHIVED': return 'text-gray-500'
     case 'DELETED': return 'text-red-500'
     case 'IN_PROCESS': return 'text-blue-400'
@@ -40,11 +43,28 @@ export const statusDot = (status) => {
   switch (status?.toUpperCase()) {
     case 'ACTIVE': return 'bg-green-400'
     case 'PAUSED': return 'bg-yellow-400'
+    case 'CAMPAIGN_PAUSED':
+    case 'ADSET_PAUSED': return 'bg-yellow-600'
+    case 'COMPLETED': return 'bg-blue-400'
     case 'ARCHIVED': return 'bg-gray-500'
     case 'IN_PROCESS': return 'bg-blue-400'
     case 'WITH_ISSUES': return 'bg-red-400'
     default: return 'bg-gray-500'
   }
+}
+
+/**
+ * Derive the true effective status, accounting for cases where Meta's API
+ * still returns ACTIVE after an end date has passed (Ads Manager shows "Completed").
+ * Only overrides ACTIVE → COMPLETED, never PAUSED (user's manual off state is preserved).
+ */
+export const deriveStatus = (obj, endTimeKey = 'end_time') => {
+  const base = obj?.effective_status || obj?.status
+  if (base === 'ACTIVE') {
+    const endTime = obj?.[endTimeKey]
+    if (endTime && new Date(endTime) < new Date()) return 'COMPLETED'
+  }
+  return base
 }
 
 export const getActions = (actions = [], actionType = 'link_click') => {

@@ -24,8 +24,20 @@ export const api = {
   getAdSets: (campaignId, datePreset = 'last_7d') =>
     client.get(`/api/campaigns/${campaignId}/adsets`, { params: { date_preset: datePreset } }).then(r => r.data),
 
+  getAd: (adId) =>
+    client.get(`/api/ads/${adId}`).then(r => r.data),
+
+  getAdTimeseries: (adId, datePreset = 'last_30d') =>
+    client.get(`/api/ads/${adId}/timeseries`, { params: { date_preset: datePreset } }).then(r => r.data),
+
+  getAdset: (adsetId) =>
+    client.get(`/api/adsets/${adsetId}`).then(r => r.data),
+
   getAds: (adsetId, datePreset = 'last_7d') =>
     client.get(`/api/adsets/${adsetId}/ads`, { params: { date_preset: datePreset } }).then(r => r.data),
+
+  updateStatus: (type, id, status) =>
+    client.post(`/api/${type}s/${id}/status`, { status }).then(r => r.data),
 }
 
 export default api

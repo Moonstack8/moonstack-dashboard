@@ -373,7 +373,7 @@ def build_email_html(report_date: str, accounts_data: list, all_ads: list = None
 
   <!-- Header -->
   <tr><td style="padding-bottom:32px;">
-    <p style="margin:0 0 20px 0;font-size:13px;font-weight:600;color:#9ca3af;letter-spacing:0.06em;text-transform:uppercase;">AdPilot</p>
+    <p style="margin:0 0 20px 0;font-size:13px;font-weight:600;color:#9ca3af;letter-spacing:0.06em;text-transform:uppercase;">Moonstack Dashboard</p>
     <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#111827;">Daily Performance Report</h1>
     <p style="margin:0;font-size:14px;color:#9ca3af;">{report_date}</p>
   </td></tr>
@@ -417,7 +417,7 @@ def build_email_html(report_date: str, accounts_data: list, all_ads: list = None
 
   <!-- Footer -->
   <tr><td style="border-top:1px solid #f3f4f6;padding-top:24px;">
-    <p style="margin:0;font-size:12px;color:#d1d5db;">AdPilot &middot; {report_date}</p>
+    <p style="margin:0;font-size:12px;color:#d1d5db;">Moonstack Dashboard &middot; {report_date}</p>
   </td></tr>
 
 </table>

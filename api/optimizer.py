@@ -51,8 +51,17 @@ SUBMIT_VARIATIONS_TOOL = {
                             "type": "string",
                             "description": "One sentence on why this variation should outperform the original.",
                         },
+                        "suggested_prompt": {
+                            "type": "string",
+                            "description": (
+                                "A ready-to-use campaign brief (2-4 sentences) that a media buyer could paste "
+                                "into a campaign builder to create this ad. Include the angle, target audience, "
+                                "key message, and any creative direction. Write it as a natural-language brief, "
+                                "not as a list of fields."
+                            ),
+                        },
                     },
-                    "required": ["angle", "headline", "primary_text", "cta_type", "reasoning"],
+                    "required": ["angle", "headline", "primary_text", "cta_type", "reasoning", "suggested_prompt"],
                 },
             }
         },

@@ -2,14 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light theme (default) */
+:root {
+  --bg-base:     244 246 251; /* #f4f6fb */
+  --bg-surface:  255 255 255; /* white   */
+  --bg-elevated: 241 245 249; /* slate-100 */
+  --color-ink:   15 23 42;    /* slate-900 */
+
+  --border-subtle:  #e2e8f0;
+  --border-default: #cbd5e1;
+  --scrollbar-track: #e2e8f0;
+  --scrollbar-thumb: #cbd5e1;
+}
+
+/* Dark theme */
+:root.dark {
+  --bg-base:     15 17 23;    /* #0f1117 */
+  --bg-surface:  19 21 31;    /* #13151f */
+  --bg-elevated: 26 29 39;    /* #1a1d27 */
+  --color-ink:   255 255 255; /* white   */
+
+  --border-subtle:  #1e2132;
+  --border-default: #252a3a;
+  --scrollbar-track: #1a1d27;
+  --scrollbar-thumb: #2e3347;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #0f1117;
-  color: #e2e8f0;
+  background: rgb(var(--bg-base));
+  color: rgb(var(--color-ink));
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -24,9 +50,9 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #1a1d27;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2e3347;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }

@@ -22,7 +22,7 @@ function ImageSlot({ adIndex, adName, onUpload, hash }) {
       className={`relative border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors min-h-[100px] ${
         dragging ? 'border-brand-500 bg-brand-500/10' :
         hash ? 'border-green-500/50 bg-green-500/5' :
-        'border-white/10 hover:border-white/20'
+        'border-rim-2 hover:border-rim-2'
       }`}
     >
       <input
@@ -57,15 +57,15 @@ export default function CampaignPlanPreview({ plan, pages, onImageUpload, imageH
       {/* Rationale */}
       <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-4">
         <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider mb-1">Strategy</p>
-        <p className="text-sm text-gray-300">{plan.rationale}</p>
+        <p className="text-sm text-ink/70">{plan.rationale}</p>
       </div>
 
       {/* Campaign */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4">
+      <div className="bg-elevated border border-rim rounded-xl p-4">
         <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Campaign</p>
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-white font-medium">{plan.campaign.name}</p>
+            <p className="text-ink font-medium">{plan.campaign.name}</p>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-xs text-gray-400">{plan.campaign.objective.replace('OUTCOME_', '')}</span>
               <span className="text-xs text-gray-600">·</span>
@@ -73,45 +73,45 @@ export default function CampaignPlanPreview({ plan, pages, onImageUpload, imageH
             </div>
           </div>
           <div className="text-right">
-            <p className="text-white font-semibold">{fmt.currency(plan.campaign.daily_budget_usd)}/day</p>
+            <p className="text-ink font-semibold">{fmt.currency(plan.campaign.daily_budget_usd)}/day</p>
             <StatusBadge status="PAUSED" />
           </div>
         </div>
       </div>
 
       {/* Ad Sets */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-white/5">
+      <div className="bg-elevated border border-rim rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-rim">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Ad Sets ({plan.adsets.length})</p>
         </div>
         {plan.adsets.map((adset, i) => (
-          <div key={i} className="px-4 py-3 border-b border-white/5 last:border-0">
+          <div key={i} className="px-4 py-3 border-b border-rim last:border-0">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-white font-medium">{adset.name}</p>
+                <p className="text-sm text-ink font-medium">{adset.name}</p>
                 <div className="flex flex-wrap gap-2 mt-1.5">
-                  <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">
+                  <span className="text-xs bg-ink/5 text-gray-400 px-2 py-0.5 rounded">
                     {adset.optimization_goal.replace(/_/g, ' ')}
                   </span>
                   {adset.targeting?.age_min && (
-                    <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-ink/5 text-gray-400 px-2 py-0.5 rounded">
                       Age {adset.targeting.age_min}–{adset.targeting.age_max}
                     </span>
                   )}
                   {adset.targeting?.geo_locations?.countries && (
-                    <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">
+                    <span className="text-xs bg-ink/5 text-gray-400 px-2 py-0.5 rounded">
                       {adset.targeting.geo_locations.countries.join(', ')}
                     </span>
                   )}
                   {adset.targeting?.interests?.slice(0, 3).map(int => (
-                    <span key={int.id} className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">
+                    <span key={int.id} className="text-xs bg-ink/5 text-gray-400 px-2 py-0.5 rounded">
                       {int.name}
                     </span>
                   ))}
                 </div>
               </div>
               {adset.daily_budget_usd && (
-                <p className="text-sm text-white font-semibold">{fmt.currency(adset.daily_budget_usd)}/day</p>
+                <p className="text-sm text-ink font-semibold">{fmt.currency(adset.daily_budget_usd)}/day</p>
               )}
             </div>
           </div>
@@ -119,18 +119,18 @@ export default function CampaignPlanPreview({ plan, pages, onImageUpload, imageH
       </div>
 
       {/* Ads + Image Upload */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-white/5">
+      <div className="bg-elevated border border-rim rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-rim">
           <p className="text-xs text-gray-500 uppercase tracking-wider">Ads ({plan.ads.length}) — Upload an image for each</p>
         </div>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-rim">
           {plan.ads.map((ad, i) => (
             <div key={i} className={`p-4 grid grid-cols-[1fr_140px] gap-4 ${!imageHashes[String(i)] ? 'opacity-50' : ''}`}>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm text-white font-medium">{ad.name}</p>
+                  <p className="text-sm text-ink font-medium">{ad.name}</p>
                   {!imageHashes[String(i)] && (
-                    <span className="text-[10px] text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">will skip</span>
+                    <span className="text-[10px] text-gray-600 bg-ink/5 px-1.5 py-0.5 rounded">will skip</span>
                   )}
                 </div>
                 <div className="space-y-1">
@@ -162,13 +162,13 @@ export default function CampaignPlanPreview({ plan, pages, onImageUpload, imageH
       </div>
 
       {/* Page selector + Launch */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4">
+      <div className="bg-elevated border border-rim rounded-xl p-4">
         <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Facebook Page</p>
         {pages.length > 0 ? (
           <select
             value={selectedPage}
             onChange={e => setSelectedPage(e.target.value)}
-            className="w-full bg-[#13151f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white mb-4"
+            className="w-full bg-surface border border-rim-2 rounded-lg px-3 py-2 text-sm text-ink mb-4"
           >
             {pages.map(p => (
               <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
@@ -180,7 +180,7 @@ export default function CampaignPlanPreview({ plan, pages, onImageUpload, imageH
             placeholder="Enter Facebook Page ID"
             value={selectedPage}
             onChange={e => setSelectedPage(e.target.value)}
-            className="w-full bg-[#13151f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white mb-4"
+            className="w-full bg-surface border border-rim-2 rounded-lg px-3 py-2 text-sm text-ink mb-4"
           />
         )}
 
@@ -189,8 +189,8 @@ export default function CampaignPlanPreview({ plan, pages, onImageUpload, imageH
           disabled={!allImagesReady || !selectedPage || isExecuting}
           className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
             allImagesReady && selectedPage && !isExecuting
-              ? 'bg-brand-500 hover:bg-brand-600 text-white'
-              : 'bg-white/5 text-gray-600 cursor-not-allowed'
+              ? 'bg-brand-500 hover:bg-brand-600 text-ink'
+              : 'bg-ink/5 text-gray-600 cursor-not-allowed'
           }`}
         >
           {isExecuting ? 'Launching...' :

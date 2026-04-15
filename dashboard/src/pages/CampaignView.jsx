@@ -2,38 +2,27 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { fmt, getConversions, getRevenue } from '../lib/format'
+import { fmt, getConversions, getRevenue, deriveStatus } from '../lib/format'
 import MetricCard from '../components/MetricCard'
 import SparkChart from '../components/SparkChart'
-import StatusBadge from '../components/StatusBadge'
 import DataTable from '../components/DataTable'
+import StatusToggle from '../components/StatusToggle'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
 import DeleteButton from '../components/DeleteButton'
 import { ChevronRight, ArrowLeft } from 'lucide-react'
 
-const ADSET_COLUMNS = [
-  { key: 'name', label: 'Ad Set' },
-  { key: 'status', label: 'Status', render: r => <StatusBadge status={r.effective_status || r.status} /> },
-  { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
-  { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
-  { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
-  { key: 'ctr', label: 'CTR', align: 'right', render: r => fmt.pct(r.insights?.ctr) },
-  { key: 'cpc', label: 'CPC', align: 'right', render: r => fmt.currency(r.insights?.cpc) },
-  { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
-  { key: 'budget', label: 'Budget', align: 'right', render: r => {
-    const b = r.daily_budget || r.lifetime_budget
-    return b ? fmt.currency(parseInt(b) / 100) : '—'
-  }},
-  { key: 'optimization', label: 'Goal', render: r => <span className="text-xs text-gray-400">{r.optimization_goal?.replace(/_/g, ' ')}</span> },
-  { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
-  { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="adset" id={r.id} onDeleted={onDeleted} /> },
+const CHART_METRICS = [
+  { key: 'spend', label: 'Spend' },
+  { key: 'impressions', label: 'Impressions' },
+  { key: 'clicks', label: 'Clicks' },
 ]
 
 export default function CampaignView() {
   const { campaignId } = useParams()
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last_7d')
+  const [chartMetric, setChartMetric] = useState('spend')
   const queryClient = useQueryClient()
 
   const handleAdsetDeleted = (id) => {
@@ -41,6 +30,30 @@ export default function CampaignView() {
       (prev || []).filter(a => a.id !== id)
     )
   }
+
+  const handleAdsetStatusUpdated = (id, newStatus) => {
+    queryClient.setQueryData(['adsets', campaignId, datePreset], prev =>
+      (prev || []).map(a => a.id === id ? { ...a, status: newStatus, effective_status: newStatus } : a)
+    )
+  }
+
+  const ADSET_COLUMNS = [
+    { key: 'name', label: 'Ad Set' },
+    { key: 'status', label: 'Status', render: r => <StatusToggle status={deriveStatus(r, 'end_time')} type="adset" id={r.id} onUpdated={handleAdsetStatusUpdated} /> },
+    { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
+    { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
+    { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
+    { key: 'ctr', label: 'CTR', align: 'right', render: r => fmt.pct(r.insights?.ctr) },
+    { key: 'cpc', label: 'CPC', align: 'right', render: r => fmt.currency(r.insights?.cpc) },
+    { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
+    { key: 'budget', label: 'Budget', align: 'right', render: r => {
+      const b = r.daily_budget || r.lifetime_budget
+      return b ? fmt.currency(parseInt(b) / 100) : '—'
+    }},
+    { key: 'optimization', label: 'Goal', render: r => <span className="text-xs text-gray-400">{r.optimization_goal?.replace(/_/g, ' ')}</span> },
+    { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
+    { key: 'delete', label: '', render: (r, onDeleted) => <DeleteButton type="adset" id={r.id} onDeleted={onDeleted} /> },
+  ]
 
   const { data: timeseries = [], isLoading: loadingTs } = useQuery({
     queryKey: ['campaign-timeseries', campaignId, datePreset],
@@ -76,12 +89,12 @@ export default function CampaignView() {
         <div>
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-white mb-2 transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-ink mb-2 transition-colors"
           >
             <ArrowLeft size={12} /> Back
           </button>
           <p className="text-xs text-gray-500 mb-1">Campaign</p>
-          <h1 className="text-xl font-bold text-white">{campaignName}</h1>
+          <h1 className="text-xl font-bold text-ink">{campaignName}</h1>
           <p className="text-xs text-gray-600 mt-0.5">{campaignId}</p>
         </div>
         <DatePresetPicker value={datePreset} onChange={setDatePreset} />
@@ -100,8 +113,25 @@ export default function CampaignView() {
       </div>
 
       {/* Chart */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4 mb-6">
-        <h2 className="text-sm font-semibold text-white mb-4">Performance Over Time</h2>
+      <div className="bg-elevated border border-rim rounded-xl p-4 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-ink">Performance Over Time</h2>
+          <div className="flex items-center gap-1 bg-ink/5 rounded-lg p-0.5">
+            {CHART_METRICS.map(m => (
+              <button
+                key={m.key}
+                onClick={() => setChartMetric(m.key)}
+                className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                  chartMetric === m.key
+                    ? 'bg-ink/10 text-ink font-medium'
+                    : 'text-gray-500 hover:text-ink/70'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
         {loadingTs ? (
           <div className="h-[220px] flex items-center justify-center">
             <LoadingSpinner size="sm" />
@@ -109,14 +139,14 @@ export default function CampaignView() {
         ) : timeseries.length === 0 ? (
           <div className="h-[220px] flex items-center justify-center text-gray-600 text-sm">No time series data</div>
         ) : (
-          <SparkChart data={timeseries} metrics={['spend', 'impressions', 'clicks']} />
+          <SparkChart data={timeseries} metric={chartMetric} />
         )}
       </div>
 
       {/* Ad Sets */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Ad Sets</h2>
+      <div className="bg-elevated border border-rim rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-rim flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">Ad Sets</h2>
           <span className="text-xs text-gray-500">{adsets.length} total</span>
         </div>
         {loadingAdsets ? (

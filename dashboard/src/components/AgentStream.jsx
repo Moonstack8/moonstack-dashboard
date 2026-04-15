@@ -14,10 +14,10 @@ function ToolCallRow({ event }) {
   const Icon = meta.icon
 
   return (
-    <div className="border border-white/5 rounded-lg overflow-hidden mb-2">
+    <div className="border border-rim rounded-lg overflow-hidden mb-2">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/3 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-ink/[0.03] transition-colors"
       >
         <Icon size={13} className={meta.color} />
         <span className={`font-medium ${meta.color}`}>{meta.label}</span>
@@ -29,7 +29,7 @@ function ToolCallRow({ event }) {
         </span>
       </button>
       {open && (
-        <div className="px-3 pb-3 border-t border-white/5">
+        <div className="px-3 pb-3 border-t border-rim">
           <pre className="text-xs text-gray-400 mt-2 overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(event.input, null, 2)}
           </pre>
@@ -68,7 +68,7 @@ export default function AgentStream({ events, isRunning }) {
       )
     } else if (e.type === 'text') {
       rendered.push(
-        <p key={i} className="text-sm text-gray-300 leading-relaxed mb-3 whitespace-pre-wrap">
+        <p key={i} className="text-sm text-ink/70 leading-relaxed mb-3 whitespace-pre-wrap">
           {e.content}
         </p>
       )
@@ -76,14 +76,14 @@ export default function AgentStream({ events, isRunning }) {
   })
 
   return (
-    <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4">
+    <div className="bg-elevated border border-rim rounded-xl p-4">
       <div className="flex items-center gap-2 mb-4">
         {isRunning ? (
           <Loader size={14} className="text-brand-400 animate-spin" />
         ) : (
           <CheckCircle size={14} className="text-green-400" />
         )}
-        <span className="text-sm font-medium text-white">
+        <span className="text-sm font-medium text-ink">
           {isRunning ? 'Agent is planning...' : 'Planning complete'}
         </span>
       </div>

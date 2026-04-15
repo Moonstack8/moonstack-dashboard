@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import { fmt, getConversions, getRevenue } from '../lib/format'
+import { fmt, getConversions, getRevenue, deriveStatus } from '../lib/format'
 import MetricCard from '../components/MetricCard'
-import StatusBadge from '../components/StatusBadge'
 import DataTable from '../components/DataTable'
 import DatePresetPicker from '../components/DatePresetPicker'
 import LoadingSpinner from '../components/LoadingSpinner'
 import DeleteButton from '../components/DeleteButton'
 import OptimizerPanel from '../components/OptimizerPanel'
-import { ArrowLeft, Zap } from 'lucide-react'
+import StatusToggle from '../components/StatusToggle'
+import { ArrowLeft, Zap, ChevronRight } from 'lucide-react'
 
 export default function AdSetView() {
   const { adsetId } = useParams()
@@ -19,6 +19,12 @@ export default function AdSetView() {
   const [optimizingAd, setOptimizingAd] = useState(null)
   const queryClient = useQueryClient()
 
+  const { data: adset } = useQuery({
+    queryKey: ['adset', adsetId],
+    queryFn: () => api.getAdset(adsetId),
+    staleTime: 60_000,
+  })
+
   const { data: ads = [], isLoading } = useQuery({
     queryKey: ['ads', adsetId, datePreset],
     queryFn: () => api.getAds(adsetId, datePreset),
@@ -26,9 +32,18 @@ export default function AdSetView() {
     staleTime: 15_000,
   })
 
+  // If the adset's end_time has passed, all ads are effectively "Completed"
+  const adsetCompleted = adset?.end_time && new Date(adset.end_time) < new Date()
+
   const handleAdDeleted = (id) => {
     queryClient.setQueryData(['ads', adsetId, datePreset], prev =>
       (prev || []).filter(a => a.id !== id)
+    )
+  }
+
+  const handleAdStatusUpdated = (id, newStatus) => {
+    queryClient.setQueryData(['ads', adsetId, datePreset], prev =>
+      (prev || []).map(a => a.id === id ? { ...a, status: newStatus, effective_status: newStatus } : a)
     )
   }
 
@@ -50,8 +65,12 @@ export default function AdSetView() {
         <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center text-gray-600 text-xs">Ad</div>
       ),
     },
-    { key: 'name', label: 'Ad', render: r => <span className="font-medium text-white">{r.name}</span> },
-    { key: 'status', label: 'Status', render: r => <StatusBadge status={r.effective_status || r.status} /> },
+    { key: 'name', label: 'Ad', render: r => <span className="font-medium text-ink">{r.name}</span> },
+    { key: 'status', label: 'Status', render: r => {
+      const base = deriveStatus(r)
+      const s = (base === 'ACTIVE' && adsetCompleted) ? 'COMPLETED' : base
+      return <StatusToggle status={s} type="ad" id={r.id} onUpdated={handleAdStatusUpdated} />
+    }},
     { key: 'spend', label: 'Spend', align: 'right', render: r => <span className="font-medium">{fmt.currency(r.insights?.spend)}</span> },
     { key: 'impressions', label: 'Impressions', align: 'right', render: r => fmt.number(r.insights?.impressions) },
     { key: 'clicks', label: 'Clicks', align: 'right', render: r => fmt.number(r.insights?.clicks) },
@@ -60,6 +79,7 @@ export default function AdSetView() {
     { key: 'cpm', label: 'CPM', align: 'right', render: r => fmt.currency(r.insights?.cpm) },
     { key: 'reach', label: 'Reach', align: 'right', render: r => fmt.number(r.insights?.reach) },
     { key: 'frequency', label: 'Freq.', align: 'right', render: r => parseFloat(r.insights?.frequency || 0).toFixed(2) },
+    { key: 'arrow', label: '', render: () => <ChevronRight size={14} className="text-gray-600" /> },
     {
       key: 'optimize',
       label: '',
@@ -87,12 +107,12 @@ export default function AdSetView() {
         <div>
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-white mb-2 transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-ink mb-2 transition-colors"
           >
             <ArrowLeft size={12} /> Back
           </button>
           <p className="text-xs text-gray-500 mb-1">Ad Set</p>
-          <h1 className="text-xl font-bold text-white">{adsetId}</h1>
+          <h1 className="text-xl font-bold text-ink">{adsetId}</h1>
         </div>
         <DatePresetPicker value={datePreset} onChange={setDatePreset} />
       </div>
@@ -110,9 +130,9 @@ export default function AdSetView() {
       </div>
 
       {/* Ads table */}
-      <div className="bg-[#1a1d27] border border-white/5 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Ads</h2>
+      <div className="bg-elevated border border-rim rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-rim flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">Ads</h2>
           <span className="text-xs text-gray-500">{ads.length} total</span>
         </div>
         {isLoading ? (
@@ -121,6 +141,7 @@ export default function AdSetView() {
           <DataTable
             columns={AD_COLUMNS}
             data={ads}
+            onRowClick={row => navigate(`/ads/${row.id}`)}
             onRowAction={handleAdDeleted}
             emptyMessage="No ads found"
           />

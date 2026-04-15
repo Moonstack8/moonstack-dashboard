@@ -149,9 +149,9 @@ export default function CampaignBuilder() {
         <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 size={28} className="text-green-400" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Campaign Launched!</h2>
+        <h2 className="text-xl font-bold text-ink mb-2">Campaign Launched!</h2>
         <p className="text-sm text-gray-400 mb-6">All objects created and PAUSED. Review in Ads Manager before activating.</p>
-        <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4 text-left space-y-2 mb-6">
+        <div className="bg-elevated border border-rim rounded-xl p-4 text-left space-y-2 mb-6">
           <p className="text-xs text-gray-500">Campaign ID: <span className="text-white font-mono">{execResult.campaign_id}</span></p>
           {execResult.adset_ids?.map((id, i) => (
             <p key={id} className="text-xs text-gray-500">Ad Set {i + 1}: <span className="text-white font-mono">{id}</span></p>
@@ -165,7 +165,7 @@ export default function CampaignBuilder() {
             <p key={i} className="text-xs text-gray-400 font-mono">{line}</p>
           ))}
         </div>
-        <button onClick={reset} className="mt-6 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm rounded-lg transition-colors">
+        <button onClick={reset} className="mt-6 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-ink text-sm rounded-lg transition-colors">
           Build Another
         </button>
       </div>
@@ -176,7 +176,7 @@ export default function CampaignBuilder() {
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-xl font-bold text-ink flex items-center gap-2">
           <Sparkles size={20} className="text-brand-400" />
           Campaign Builder
         </h1>
@@ -185,14 +185,14 @@ export default function CampaignBuilder() {
 
       {/* Input */}
       {!plan && (
-        <div className="bg-[#1a1d27] border border-white/5 rounded-xl p-4 mb-4">
+        <div className="bg-elevated border border-rim rounded-xl p-4 mb-4">
           {/* Account selector */}
           <div className="mb-3">
             <label className="text-xs text-gray-500 block mb-1.5">Ad Account</label>
             <select
               value={accountId}
               onChange={e => setAccountId(e.target.value)}
-              className="w-full bg-[#13151f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+              className="w-full bg-surface border border-rim-2 rounded-lg px-3 py-2 text-sm text-ink"
             >
               <option value="">Select account...</option>
               {accounts.map(a => (
@@ -209,7 +209,7 @@ export default function CampaignBuilder() {
               onChange={e => setBrief(e.target.value)}
               placeholder="Describe the client, their product, target audience, budget, and campaign goal..."
               rows={5}
-              className="w-full bg-[#13151f] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 resize-none focus:outline-none focus:border-brand-500/50"
+              className="w-full bg-surface border border-rim-2 rounded-lg px-3 py-2.5 text-sm text-ink placeholder-gray-600 resize-none focus:outline-none focus:border-brand-500/50"
             />
           </div>
 
@@ -221,7 +221,7 @@ export default function CampaignBuilder() {
                 <button
                   key={i}
                   onClick={() => setBrief(ex)}
-                  className="text-left text-xs text-gray-500 hover:text-gray-300 bg-white/3 hover:bg-white/5 rounded-lg px-3 py-2 transition-colors line-clamp-2"
+                  className="text-left text-xs text-gray-500 hover:text-ink/70 bg-ink/[0.03] hover:bg-ink/5 rounded-lg px-3 py-2 transition-colors line-clamp-2"
                 >
                   {ex}
                 </button>
@@ -234,8 +234,8 @@ export default function CampaignBuilder() {
             disabled={!brief.trim() || !accountId || isRunning}
             className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
               brief.trim() && accountId && !isRunning
-                ? 'bg-brand-500 hover:bg-brand-600 text-white'
-                : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                ? 'bg-brand-500 hover:bg-brand-600 text-ink'
+                : 'bg-ink/5 text-gray-600 cursor-not-allowed'
             }`}
           >
             <Sparkles size={15} />
@@ -261,10 +261,10 @@ export default function CampaignBuilder() {
       {plan && !isRunning && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-white">Campaign Plan — Review & Launch</h2>
+            <h2 className="text-sm font-semibold text-ink">Campaign Plan — Review & Launch</h2>
             <button
               onClick={reset}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-ink transition-colors"
             >
               <RotateCcw size={12} /> Start over
             </button>

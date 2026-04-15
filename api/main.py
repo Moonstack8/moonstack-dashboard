@@ -290,6 +290,43 @@ def get_adsets(
 # Routes: Ads
 # ---------------------------------------------------------------------------
 
+@app.get("/api/ads/{ad_id}/timeseries")
+def get_ad_timeseries(
+    ad_id: str,
+    date_preset: str = Query("last_30d"),
+    time_increment: int = Query(1),
+):
+    data = meta_get(f"/{ad_id}/insights", {
+        "fields": "spend,impressions,clicks,ctr,cpc,cpm",
+        "date_preset": date_preset,
+        "time_increment": time_increment,
+        "level": "ad",
+    })
+    return data.get("data", [])
+
+
+@app.get("/api/ads/{ad_id}")
+def get_ad(ad_id: str):
+    data = meta_get(f"/{ad_id}", {
+        "fields": "id,name,status,effective_status,adset_id,campaign_id,creative{id,name,thumbnail_url,object_story_spec},account_id",
+    })
+    # Attach insights
+    insights_resp = meta_get(f"/{ad_id}/insights", {
+        "fields": INSIGHT_FIELDS,
+        "date_preset": "last_30d",
+    })
+    data["insights"] = insights_resp.get("data", [{}])[0] if insights_resp.get("data") else {}
+    return data
+
+
+@app.get("/api/adsets/{adset_id}")
+def get_adset(adset_id: str):
+    data = meta_get(f"/{adset_id}", {
+        "fields": "id,name,status,effective_status,daily_budget,lifetime_budget,budget_remaining,start_time,end_time,optimization_goal,account_id",
+    })
+    return data
+
+
 @app.get("/api/adsets/{adset_id}/ads")
 def get_ads(
     adset_id: str,
@@ -360,17 +397,20 @@ def get_campaign_timeseries(
 # Delete (archives object in Meta — ads, adsets, campaigns)
 # ---------------------------------------------------------------------------
 
-def meta_delete(object_id: str, account_id: str = None) -> dict:
+def meta_update(object_id: str, payload: dict, account_id: str = None) -> dict:
     token = _token_for(account_id) if account_id else ACCESS_TOKEN
     r = httpx.post(
         f"{GRAPH_BASE}/{object_id}",
-        json={"status": "DELETED", "access_token": token},
+        json={"access_token": token, **payload},
         timeout=20.0,
     )
     result = r.json()
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"].get("message", "Delete failed"))
+        raise HTTPException(status_code=400, detail=result["error"].get("message", "Update failed"))
     return result
+
+def meta_delete(object_id: str, account_id: str = None) -> dict:
+    return meta_update(object_id, {"status": "DELETED"}, account_id)
 
 @app.delete("/api/ads/{ad_id}")
 def delete_ad(ad_id: str):
@@ -383,6 +423,32 @@ def delete_adset(adset_id: str):
 @app.delete("/api/campaigns/{campaign_id}")
 def delete_campaign(campaign_id: str):
     return meta_delete(campaign_id)
+
+
+# ---------------------------------------------------------------------------
+# Status toggle (ACTIVE ↔ PAUSED)
+# ---------------------------------------------------------------------------
+
+class StatusUpdateRequest(BaseModel):
+    status: str  # "ACTIVE" or "PAUSED"
+
+@app.post("/api/ads/{ad_id}/status")
+def update_ad_status(ad_id: str, req: StatusUpdateRequest):
+    if req.status not in ("ACTIVE", "PAUSED"):
+        raise HTTPException(status_code=400, detail="status must be ACTIVE or PAUSED")
+    return meta_update(ad_id, {"status": req.status})
+
+@app.post("/api/adsets/{adset_id}/status")
+def update_adset_status(adset_id: str, req: StatusUpdateRequest):
+    if req.status not in ("ACTIVE", "PAUSED"):
+        raise HTTPException(status_code=400, detail="status must be ACTIVE or PAUSED")
+    return meta_update(adset_id, {"status": req.status})
+
+@app.post("/api/campaigns/{campaign_id}/status")
+def update_campaign_status(campaign_id: str, req: StatusUpdateRequest):
+    if req.status not in ("ACTIVE", "PAUSED"):
+        raise HTTPException(status_code=400, detail="status must be ACTIVE or PAUSED")
+    return meta_update(campaign_id, {"status": req.status})
 
 
 # ---------------------------------------------------------------------------
