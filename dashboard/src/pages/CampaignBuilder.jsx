@@ -6,7 +6,7 @@ import CampaignPlanPreview from '../components/CampaignPlanPreview'
 import { Sparkles, RotateCcw, CheckCircle2 } from 'lucide-react'
 import axios from 'axios'
 
-const BASE_URL = 'http://localhost:8000'
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const EXAMPLE_BRIEFS = [
   'Launch a TOFU traffic campaign for Moonstack (trymoonstack.com), a SaaS tool that helps marketers create better ads with AI. Target startup founders and digital marketers aged 25-45 in the US. Budget $10/day.',

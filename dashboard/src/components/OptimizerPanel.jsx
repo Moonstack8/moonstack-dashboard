@@ -133,7 +133,7 @@ export default function OptimizerPanel({ ad, accountId, onClose }) {
     let collectedVariations = null
 
     getAuthHeaders().then(authHeaders =>
-    fetch('http://localhost:8000/api/agent/optimize', {
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/agent/optimize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ ad_id: ad.id, account_id: accountId }),
