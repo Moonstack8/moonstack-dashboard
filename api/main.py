@@ -108,7 +108,7 @@ app = FastAPI(title="Meta Ads Dashboard API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://localhost:\d+",
+    allow_origin_regex=r"http://localhost:\d+|https://.*\.trymoonstack\.com|https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
