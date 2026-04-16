@@ -159,7 +159,6 @@ def main():
     title          = config["title"]
     description    = config["description"].strip()
     template_video = config_dir / "Swolely Template.mp4"
-    thumbnail      = config_dir / "thumbnail.jpg"
 
     pexels_key = os.getenv("PEXELS_API_KEY")
     if not pexels_key:
@@ -183,7 +182,7 @@ def main():
         output_path = OUTPUT_DIR / f"video_{timestamp}.mp4"
         splice_clips(cached, seconds, output_path, template_video)
         publish_at = next_publish_time(youtube)
-        upload(output_path, title, description, publish_at, youtube, thumbnail_path=thumbnail)
+        upload(output_path, title, description, publish_at, youtube)
         print(f"Saved to: {output_path}")
 
 

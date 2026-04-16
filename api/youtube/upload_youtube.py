@@ -87,14 +87,7 @@ def next_publish_time(youtube) -> datetime:
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 
-def upload(
-    video_path: Path,
-    title: str,
-    description: str,
-    publish_at: datetime,
-    youtube,
-    thumbnail_path: Path | None = None,
-) -> str:
+def upload(video_path: Path, title: str, description: str, publish_at: datetime, youtube) -> str:
     """Upload video as a scheduled private video and return its video ID."""
     if publish_at.tzinfo is None:
         publish_at = publish_at.replace(tzinfo=timezone.utc)
@@ -125,13 +118,4 @@ def upload(
 
     video_id = response["id"]
     print(f"Scheduled! https://www.youtube.com/watch?v={video_id}")
-
-    if thumbnail_path and thumbnail_path.exists():
-        mime = "image/png" if thumbnail_path.suffix.lower() == ".png" else "image/jpeg"
-        youtube.thumbnails().set(
-            videoId=video_id,
-            media_body=MediaFileUpload(str(thumbnail_path), mimetype=mime),
-        ).execute()
-        print(f"Thumbnail set: {thumbnail_path.name}")
-
     return video_id
