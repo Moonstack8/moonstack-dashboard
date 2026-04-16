@@ -106,6 +106,41 @@ def splice_clips(scraped_path: Path, cut_secs: float, output_path: Path, templat
     final.close()
 
 
+# ── Clip approval ─────────────────────────────────────────────────────────────
+
+def pick_one_clip(query: str, pexels_key: str) -> Path:
+    """Fetch and preview Pexels clips until the user approves one."""
+    while True:
+        download_url = fetch_pexels(query, pexels_key)
+        filename     = f"{abs(hash(download_url))}.mp4"
+        candidate    = CLIP_CACHE / filename
+
+        if not candidate.exists():
+            download_video(download_url, candidate)
+        else:
+            print(f"Cache hit: {candidate.name}")
+
+        subprocess.run(["open", str(candidate)], check=False)
+        answer = input("\nKeep this clip? [y/n]: ").strip().lower()
+
+        if answer == "y":
+            return candidate
+
+        candidate.unlink(missing_ok=True)
+        print("Rejected — fetching another clip ...\n")
+
+
+def collect_approved_clips(query: str, pexels_key: str) -> list:
+    """Keep approving clips until the user is done."""
+    approved = []
+    while True:
+        clip = pick_one_clip(query, pexels_key)
+        approved.append(clip)
+        print(f"{len(approved)} clip(s) approved.")
+        if input("Approve another clip? [y/n]: ").strip().lower() != "y":
+            return approved
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -124,6 +159,7 @@ def main():
     title          = config["title"]
     description    = config["description"].strip()
     template_video = config_dir / "Swolely Template.mp4"
+    thumbnail      = config_dir / "thumbnail.jpg"
 
     pexels_key = os.getenv("PEXELS_API_KEY")
     if not pexels_key:
@@ -132,42 +168,23 @@ def main():
             "Get a free key at https://www.pexels.com/api/ and add it to .env"
         )
 
-    # ── Pick & approve stock clip ────────────────────────────────────────────
     CLIP_CACHE.mkdir(parents=True, exist_ok=True)
-    cached = None
-
-    while cached is None:
-        download_url = fetch_pexels(query, pexels_key)
-        filename     = f"{abs(hash(download_url))}.mp4"
-        candidate    = CLIP_CACHE / filename
-
-        if not candidate.exists():
-            download_video(download_url, candidate)
-        else:
-            print(f"Cache hit: {candidate.name}")
-
-        subprocess.run(["open", str(candidate)], check=False)
-        answer = input("\nKeep this clip? [y/n]: ").strip().lower()
-
-        if answer == "y":
-            cached = candidate
-        else:
-            candidate.unlink(missing_ok=True)
-            print("Rejected — fetching another clip ...\n")
-
-    # ── Splice ───────────────────────────────────────────────────────────────
-    timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = OUTPUT_DIR / f"video_{timestamp}.mp4"
-    splice_clips(cached, seconds, output_path, template_video)
-    print(f"\nDone! Saved to: {output_path}")
-
-    # ── Upload ────────────────────────────────────────────────────────────────
-    youtube    = get_youtube_client(
+    youtube = get_youtube_client(
         secrets_file=config_dir / "client_secrets.json",
         token_file=config_dir / "youtube_token.json",
     )
-    publish_at = next_publish_time(youtube)
-    upload(output_path, title, description, publish_at, youtube)
+
+    approved = collect_approved_clips(query, pexels_key)
+    print(f"\n{len(approved)} clip(s) approved. Splicing and uploading ...\n")
+
+    for i, cached in enumerate(approved, 1):
+        print(f"── Clip {i}/{len(approved)} ──────────────────────────────")
+        timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = OUTPUT_DIR / f"video_{timestamp}.mp4"
+        splice_clips(cached, seconds, output_path, template_video)
+        publish_at = next_publish_time(youtube)
+        upload(output_path, title, description, publish_at, youtube, thumbnail_path=thumbnail)
+        print(f"Saved to: {output_path}")
 
 
 if __name__ == "__main__":
