@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+*.DS_Store
 .env
 *.egg-info/
 dist/
@@ -11,3 +12,5 @@ rollback/
 _private/
 .mcp.json
 config
+output_dir
+.clip_cache

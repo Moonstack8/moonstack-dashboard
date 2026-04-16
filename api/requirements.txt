@@ -9,3 +9,8 @@ apscheduler
 anthropic
 resend
 python-multipart
+Pillow
+requests
+moviepy
+google-api-python-client
+google-auth-oauthlib
