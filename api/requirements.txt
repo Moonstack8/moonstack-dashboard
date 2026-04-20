@@ -14,3 +14,4 @@ requests
 moviepy
 google-api-python-client
 google-auth-oauthlib
+openai

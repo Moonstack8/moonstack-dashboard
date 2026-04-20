@@ -7,7 +7,7 @@ from pathlib import Path
 import PIL.Image
 import requests
 from dotenv import load_dotenv
-from moviepy import VideoFileClip, concatenate_videoclips
+from moviepy import ImageClip, VideoFileClip, concatenate_videoclips
 
 load_dotenv()
 
@@ -104,6 +104,75 @@ def splice_clips(scraped_path: Path, cut_secs: float, output_path: Path, templat
     )
 
     scraped.close()
+    template.close()
+    final.close()
+
+
+def splice_rate_physique(
+    captioned_path: Path,
+    scorecard_path: Path,
+    output_path: Path,
+    template_video: Path,
+    total_secs: float,
+    caption_secs: float = 4.0,
+):
+    """Build: [caption video, scorecard image, template outro video] with template audio only.
+
+    total_secs  = caption_secs + composite_secs (from config 'seconds').
+    The template audio runs unmodified across the full output.
+    """
+    if not template_video.exists():
+        raise FileNotFoundError(f"Template not found: {template_video}")
+
+    composite_secs = max(total_secs - caption_secs, 1.0)
+
+    print("\nLoading template ...")
+    template = VideoFileClip(str(template_video))
+    tw, th = template.size
+    fps = template.fps or 30
+    print(f"  Template: {tw}x{th} @ {fps:.2f} fps, {template.duration:.2f}s")
+
+    # ── Caption segment (video only, no audio) ────────────────────────────────
+    cap = VideoFileClip(str(captioned_path))
+    cap_seg = (
+        cap.subclipped(0, min(caption_secs, cap.duration))
+        .without_audio()
+        .resized((tw, th))
+        .with_fps(fps)
+    )
+
+    # ── Composite image segment ───────────────────────────────────────────────
+    img_seg = (
+        ImageClip(str(scorecard_path))
+        .with_duration(composite_secs)
+        .resized((tw, th))
+        .with_fps(fps)
+    )
+
+    # ── Template outro (video only, no audio) ────────────────────────────────
+    outro_start = min(total_secs, template.duration)
+    outro = template.subclipped(outro_start).without_audio()
+
+    print(f"\nBuilding: {cap_seg.duration:.2f}s caption + {composite_secs:.2f}s scorecard + {outro.duration:.2f}s outro")
+    video_track = concatenate_videoclips([cap_seg, img_seg, outro], method="compose")
+
+    # ── Attach template audio unchanged ──────────────────────────────────────
+    audio = template.audio.subclipped(0, min(template.audio.duration, video_track.duration))
+    final = video_track.with_audio(audio)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Writing → {output_path}")
+    final.write_videofile(
+        str(output_path),
+        codec="libx264",
+        audio_codec="aac",
+        fps=fps,
+        temp_audiofile=str(output_path.parent / "temp_audio.m4a"),
+        remove_temp=True,
+        logger=None,
+    )
+
+    cap.close()
     template.close()
     final.close()
 
