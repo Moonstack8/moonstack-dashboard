@@ -76,11 +76,11 @@ def main():
 
             splice_rate_physique(captioned_path, scorecard_path, output_path, template_video, total_secs=seconds)
 
-        elif pipeline == "fitness girls":
+        elif pipeline == "compare physique":
             splice_clips(cached, seconds, output_path, template_video)
 
         else:
-            raise ValueError(f"Unknown pipeline '{pipeline}'. Set 'pipeline' in upload_config.yaml to 'rate my physique' or 'fitness girls'.")
+            raise ValueError(f"Unknown pipeline '{pipeline}'. Set 'pipeline' in upload_config.yaml to 'rate my physique' or 'compare physique'.")
 
         if upload_target == "youtube":
             publish_at = next_publish_time(youtube)
