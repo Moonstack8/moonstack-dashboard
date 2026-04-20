@@ -106,14 +106,6 @@ async def lifespan(app):
 
 app = FastAPI(title="Meta Ads Dashboard API", lifespan=lifespan)
 
-app.add_middleware(ClerkAuthMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"http://localhost:\d+|https://.*\.trymoonstack\.com|https://.*\.vercel\.app",
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # ---------------------------------------------------------------------------
 # Clerk JWT verification
 # ---------------------------------------------------------------------------
@@ -151,6 +143,14 @@ class ClerkAuthMiddleware(BaseHTTPMiddleware):
         except Exception:
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return await call_next(request)
+
+app.add_middleware(ClerkAuthMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"http://localhost:\d+|https://.*\.trymoonstack\.com|https://.*\.vercel\.app",
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Keep ACCESS_TOKEN for backwards compat (agent, executor, upload)
 ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN", "")
