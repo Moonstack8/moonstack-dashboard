@@ -1,18 +1,13 @@
-import argparse
 import os
 import random
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import PIL.Image
 import requests
 from dotenv import load_dotenv
 from moviepy import VideoFileClip, concatenate_videoclips
-
-import yaml
-from upload_youtube import get_youtube_client, next_publish_time, upload
 
 load_dotenv()
 
@@ -24,6 +19,13 @@ ROOT           = Path(__file__).resolve().parent.parent.parent
 OUTPUT_DIR     = ROOT / "output_dir"
 CLIP_CACHE     = ROOT / ".clip_cache"
 DOWNLOAD_CHUNK = 64 * 1024  # bytes per streaming chunk
+
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+if not PEXELS_API_KEY:
+    sys.exit(
+        "ERROR: PEXELS_API_KEY not set.\n"
+        "Get a free key at https://www.pexels.com/api/ and add it to .env"
+    )
 
 def fetch_pexels(query: str, api_key: str) -> str:
     """Return a download URL from Pexels Videos. Skips the top result to stay niche."""
@@ -108,10 +110,10 @@ def splice_clips(scraped_path: Path, cut_secs: float, output_path: Path, templat
 
 # ── Clip approval ─────────────────────────────────────────────────────────────
 
-def pick_one_clip(query: str, pexels_key: str) -> Path:
+def pick_one_clip(query: str) -> Path:
     """Fetch and preview Pexels clips until the user approves one."""
     while True:
-        download_url = fetch_pexels(query, pexels_key)
+        download_url = fetch_pexels(query, PEXELS_API_KEY)
         filename     = f"{abs(hash(download_url))}.mp4"
         candidate    = CLIP_CACHE / filename
 
@@ -130,61 +132,13 @@ def pick_one_clip(query: str, pexels_key: str) -> Path:
         print("Rejected — fetching another clip ...\n")
 
 
-def collect_approved_clips(query: str, pexels_key: str) -> list:
+def collect_approved_clips(query: str) -> list:
     """Keep approving clips until the user is done."""
     approved = []
     while True:
-        clip = pick_one_clip(query, pexels_key)
+        clip = pick_one_clip(query)
         approved.append(clip)
         print(f"{len(approved)} clip(s) approved.")
         if input("Approve another clip? [y/n]: ").strip().lower() != "y":
             return approved
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Splice a copyright-free stock clip into Swolely Template"
-    )
-    parser.add_argument("--config-dir", type=Path, default=ROOT / "config/swolely",
-                        help="Path to config directory (must contain upload_config.yaml and template)")
-    args = parser.parse_args()
-
-    config_dir = args.config_dir
-    config     = yaml.safe_load((config_dir / "upload_config.yaml").read_text())
-
-    query          = config.get("query", "").strip() or None
-    seconds        = float(config.get("seconds", 3.82))
-    title          = config["title"]
-    description    = config["description"].strip()
-    template_video = config_dir / "Swolely Template.mp4"
-
-    pexels_key = os.getenv("PEXELS_API_KEY")
-    if not pexels_key:
-        sys.exit(
-            "ERROR: PEXELS_API_KEY not set.\n"
-            "Get a free key at https://www.pexels.com/api/ and add it to .env"
-        )
-
-    CLIP_CACHE.mkdir(parents=True, exist_ok=True)
-    youtube = get_youtube_client(
-        secrets_file=config_dir / "client_secrets.json",
-        token_file=config_dir / "youtube_token.json",
-    )
-
-    approved = collect_approved_clips(query, pexels_key)
-    print(f"\n{len(approved)} clip(s) approved. Splicing and uploading ...\n")
-
-    for i, cached in enumerate(approved, 1):
-        print(f"── Clip {i}/{len(approved)} ──────────────────────────────")
-        timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = OUTPUT_DIR / f"video_{timestamp}.mp4"
-        splice_clips(cached, seconds, output_path, template_video)
-        publish_at = next_publish_time(youtube)
-        upload(output_path, title, description, publish_at, youtube)
-        print(f"Saved to: {output_path}")
-
-
-if __name__ == "__main__":
-    main()
