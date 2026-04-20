@@ -161,17 +161,17 @@ def composite_scores(frame_path: Path, scores: dict, output_path: Path) -> Path:
     """Paste last frame into the photo slot and draw scores onto the template."""
     img = Image.open(RATE_TEMPLATE).convert("RGBA")
 
-    # Replace photo slot — scale to fill width (preserve ratio), center-crop height
+    # Replace photo slot — scale to fit within box preserving ratio, center in slot
     l, t, r, b = PHOTO_BOX
     slot_w, slot_h = r - l, b - t
     frame = Image.open(frame_path).convert("RGBA")
     fw, fh = frame.size
-    scale = slot_w / fw
-    new_w, new_h = slot_w, int(fh * scale)
+    scale = min(slot_w / fw, slot_h / fh)
+    new_w, new_h = int(fw * scale), int(fh * scale)
     frame = frame.resize((new_w, new_h), Image.LANCZOS)
-    crop_y = max((new_h - slot_h) // 2, 0)
-    frame = frame.crop((0, crop_y, slot_w, crop_y + slot_h))
-    img.paste(frame, (l, t))
+    paste_x = l + (slot_w - new_w) // 2
+    paste_y = t + (slot_h - new_h) // 2
+    img.paste(frame, (paste_x, paste_y))
 
     draw = ImageDraw.Draw(img)
 
