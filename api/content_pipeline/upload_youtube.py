@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -34,7 +33,7 @@ def get_youtube_client(secrets_file: Path, token_file: Path):
 
 # ── Scheduling ────────────────────────────────────────────────────────────────
 
-def _latest_video_time(youtube) -> datetime | None:
+def _latest_video_time(youtube) -> Optional[datetime]:
     """Return the latest publish time across both live and scheduled videos."""
     # Get the channel's uploads playlist (includes private/scheduled)
     ch_resp = youtube.channels().list(mine=True, part="contentDetails").execute()
